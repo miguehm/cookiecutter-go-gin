@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"log"
 
-	"{{ cookiecutter.project_slug }}/configs"
+	"{{ cookiecutter.go_module }}/configs"
 
 	"github.com/hibiken/asynq"
-	"{{ cookiecutter.project_slug }}/internal/core/asynctasks"
-	"{{ cookiecutter.project_slug }}/internal/core/asynctasks/tasks"
+	"{{ cookiecutter.go_module }}/internal/core/asynctasks"
+	"{{ cookiecutter.go_module }}/internal/core/asynctasks/tasks"
 )
 
 func main() {
 	configs.Bootstrap()
+	defer configs.Shutdown()
 
 	var tlsConfig *tls.Config
 	if configs.Env.RedisEnableSsl {

@@ -10,7 +10,7 @@ data "external_schema" "gorm" {
 env "gorm" {
   src = data.external_schema.gorm.url
   # dev = "docker://postgres/14.1/dev"
-  dev = "postgres://dev:dev@devhost:5432/atlas?sslmode=disable"
+  dev = "postgres://dev:dev@127.0.0.1:5432/atlas?sslmode=disable"
   migration {
     dir = "file://migrations"
   }

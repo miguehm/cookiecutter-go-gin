@@ -1,42 +1,49 @@
 package pagination
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"testing"
-
-	"{{ cookiecutter.project_slug }}/configs"
-	"{{ cookiecutter.project_slug }}/internal/models"
 )
 
-func TestSimplePagination_GetData(t *testing.T) {
-	configs.GetDB()
-	size := 20
-	page := 1
+func TestPaginationRequest(t *testing.T) {
+	t.Parallel()
 
-	//queryFilter := fmt.Sprintf(`[["user.average_point","like","%s"]]`, avg)
-	query := fmt.Sprintf(`page=%d&size=%d`, page, size)
-
-	stmt := configs.GetDB().Model(&models.Agency{})
-	req := &http.Request{
-		Method: "GET",
-		URL: &url.URL{
-			RawQuery: query,
-		},
+	tests := []struct {
+		name     string
+		query    string
+		wantPage int
+		wantSize int
+	}{
+		{name: "defaults", query: "", wantPage: 1, wantSize: 50},
+		{name: "valid values", query: "page=2&size=20", wantPage: 2, wantSize: 20},
+		{name: "invalid page", query: "page=abc&size=20", wantPage: 1, wantSize: 20},
+		{name: "invalid size", query: "page=2&size=abc", wantPage: 2, wantSize: 50},
 	}
-	p := &Pagination{}
-	p.With(stmt).Request(req)
-	pageData := p.Response(&[]models.Agency{})
 
-	//TranslateItems[models.Agency, ShortAgency](pageData)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	log.Println(pageData.Items)
-	log.Println(pageData.Total)
+			req := &http.Request{URL: &url.URL{RawQuery: tt.query}}
+			p := NewStandardPagination().Request(req)
 
+			if p.RequestParams.Page != tt.wantPage {
+				t.Fatalf("page = %d, want %d", p.RequestParams.Page, tt.wantPage)
+			}
+			if p.RequestParams.Size != tt.wantSize {
+				t.Fatalf("size = %d, want %d", p.RequestParams.Size, tt.wantSize)
+			}
+		})
+	}
 }
 
-type ShortAgency struct {
-	Apikey string `json:"apikey" binding:"required"`
+func TestNewStandardPaginationMaxSize(t *testing.T) {
+	t.Parallel()
+
+	p := NewStandardPagination()
+	if p.maxSize != 50 {
+		t.Fatalf("maxSize = %d, want 50", p.maxSize)
+	}
 }

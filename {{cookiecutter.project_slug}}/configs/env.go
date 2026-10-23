@@ -1,6 +1,7 @@
 package configs
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -40,6 +41,37 @@ type EnvConfig struct {
 }
 
 var Env = EnvConfig{}
+
+func (e EnvConfig) Validate() error {
+	var missing []string
+
+	require := func(name, value string) {
+		if value == "" {
+			missing = append(missing, name)
+		}
+	}
+
+	require("PORT", e.Port)
+	require("GIN_MODE", e.GinMode)
+	require("JWT_SECRET", e.JwtSecret)
+
+	if e.DBHost != "" {
+		require("DB_PORT", e.DBPort)
+		require("DB_USER", e.DBUser)
+		require("DB_NAME", e.DBName)
+		require("DB_SSL_MODE", e.DBSslMode)
+	}
+
+	if e.RedisHost != "" {
+		require("REDIS_PORT", e.RedisPort)
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required configuration: %s", strings.Join(missing, ", "))
+	}
+
+	return nil
+}
 
 func init() {
 	_, filename, _, _ := runtime.Caller(0)

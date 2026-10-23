@@ -2,42 +2,42 @@ package main
 
 import (
 	"context"
+{% if cookiecutter.use_sentry == "yes" %}
 	"time"
 
 	"github.com/getsentry/sentry-go"
+{% endif %}
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 
-	"{{ cookiecutter.project_slug }}/configs"
-	"{{ cookiecutter.project_slug }}/internal/controllers"
-	"{{ cookiecutter.project_slug }}/internal/core/repositories"
-	"{{ cookiecutter.project_slug }}/internal/core/services"
-	"{{ cookiecutter.project_slug }}/internal/server"
+	"{{ cookiecutter.go_module }}/configs"
+{% if cookiecutter.use_db == "yes" %}
+	"{{ cookiecutter.go_module }}/internal/controllers"
+	"{{ cookiecutter.go_module }}/internal/core/repositories"
+	"{{ cookiecutter.go_module }}/internal/core/services"
+{% endif %}
+	"{{ cookiecutter.go_module }}/internal/server"
 )
 
 func main() {
-	configs.PreServerStart()
-	defer configs.PreServerShutdown()
-
+	configs.Bootstrap()
+	defer configs.Shutdown()
+{% if cookiecutter.use_sentry == "yes" %}
 	defer sentry.Flush(2 * time.Second)
-
-	configs.InitAsynqClient()
-	defer configs.AsynqClient.Close()
+{% endif %}
 
 	Run()
-
 }
 
 func Run() {
-	configs.PreServerStart()
-	defer configs.PreServerStop()
-
 	app := fx.New(
 		fx.Provide(
+{% if cookiecutter.use_db == "yes" %}
 			configs.GetDB,
 			repositories.NewUserRepository,
 			services.NewUserService,
 			controllers.NewUserController,
+{% endif %}
 			server.NewRouter,
 			server.NewServer,
 		),

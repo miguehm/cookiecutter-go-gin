@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
-	"{{ cookiecutter.project_slug }}/configs"
+	"{{ cookiecutter.go_module }}/configs"
 )
 
 const (
@@ -97,7 +97,7 @@ func (b *FilterBuilder) BuildFilter() (string, []interface{}, string) {
 		}
 		w, p, err := filter.GetQuery(valueParam)
 		if err != nil {
-			logger.Error(err)
+			logger.Error("failed to build filter", "param", filter.Param, "err", err)
 		} else {
 			wheres = append(wheres, w)
 			params = append(params, p)

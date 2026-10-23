@@ -1,7 +1,7 @@
 # !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-pip install invoke jinja2
+uvx --from invoke --with jinja2 inv <task>
 """
 
 import contextlib
@@ -49,6 +49,23 @@ def to_camel_case(s):
     return s[0].lower() + s[1:] if s else s
 
 
+def read_go_module():
+    with open('go.mod', 'r') as file:
+        for line in file:
+            if line.startswith('module '):
+                return line.split(None, 1)[1].strip()
+
+    raise RuntimeError("no se encontró la línea 'module' en go.mod")
+
+
+def template_context(model):
+    return {
+        'model': model,
+        'model_camelcase': to_camel_case(model),
+        'go_module': read_go_module(),
+    }
+
+
 # Tasks
 # -------------------------------------------------------------------------
 def read_config_file(file_path):
@@ -69,7 +86,7 @@ def read_config_file(file_path):
 
 def _format_env(stage):
     logger.info(f"format env for stage {stage}")
-    with open('env/template.env', 'r') as file:
+    with open('env/_template.env', 'r') as file:
         template_content = file.read()
 
     config = read_config_file(f'env/{stage}.env')
@@ -81,8 +98,9 @@ def _format_env(stage):
 @task
 def format_env(c, stage="all"):
     if stage == "all":
-        for s in ['dev', 'testing', 'unstable', 'staging']:
-            _format_env(s)
+        for name in sorted(os.listdir('env')):
+            if name.endswith('.env') and not name.startswith('_'):
+                _format_env(name[:-4])
     else:
         _format_env(stage)
 
@@ -91,11 +109,7 @@ def format_env(c, stage="all"):
 def gen_repository(c, model):
     env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'))
     template = env.get_template('repository.j2')
-    context = {
-        'model': model,
-        'model_camelcase': to_camel_case(model)
-    }
-    rendered_content = template.render(context)
+    rendered_content = template.render(template_context(model))
 
     out_file = f'internal/core/repositories/{to_snake_case(model)}_repository.go'
     with open(out_file, 'w') as f:
@@ -108,11 +122,7 @@ def gen_repository(c, model):
 def gen_service(c, model):
     env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'))
     template = env.get_template('service.j2')
-    context = {
-        'model': model,
-        'model_camelcase': to_camel_case(model)
-    }
-    rendered_content = template.render(context)
+    rendered_content = template.render(template_context(model))
 
     out_file = f'internal/core/services/{to_snake_case(model)}_service.go'
     with open(out_file, 'w') as f:
@@ -125,11 +135,7 @@ def gen_service(c, model):
 def gen_model(c, model):
     env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'))
     template = env.get_template('model.j2')
-    context = {
-        'model': model,
-        'model_camelcase': to_camel_case(model)
-    }
-    rendered_content = template.render(context)
+    rendered_content = template.render(template_context(model))
 
     out_file = f'internal/core/models/{to_snake_case(model)}.go'
     with open(out_file, 'w') as f:

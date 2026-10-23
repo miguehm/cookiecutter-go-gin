@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
-	"{{ cookiecutter.project_slug }}/configs"
+	"{{ cookiecutter.go_module }}/configs"
 )
 
 func RequestLogger() gin.HandlerFunc {

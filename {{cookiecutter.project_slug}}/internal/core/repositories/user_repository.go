@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"{{ cookiecutter.project_slug }}/internal/core/models"
+	"{{ cookiecutter.go_module }}/internal/core/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

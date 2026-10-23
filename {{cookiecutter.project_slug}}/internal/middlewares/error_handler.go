@@ -8,14 +8,12 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"{{ cookiecutter.project_slug }}/configs"
-	"{{ cookiecutter.project_slug }}/internal/core/apierrors"
+	"{{ cookiecutter.go_module }}/configs"
+	"{{ cookiecutter.go_module }}/internal/core/apierrors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
-
-var logger = configs.GetLogger()
 
 func UcFirst(str string) string {
 	for i, v := range str {
@@ -92,7 +90,7 @@ func ValidationErrorToText(e validator.FieldError) string {
 	case "min":
 		return fmt.Sprintf("%s must be longer than %s", word, e.Param())
 	case "email":
-		return fmt.Sprintf("Invalid email format")
+		return "Invalid email format"
 	case "len":
 		return fmt.Sprintf("%s must be %s characters long", word, e.Param())
 	}
@@ -100,6 +98,7 @@ func ValidationErrorToText(e validator.FieldError) string {
 }
 
 func ErrorHandler() gin.HandlerFunc {
+	logger := configs.GetLogger()
 
 	return func(c *gin.Context) {
 		c.Next()

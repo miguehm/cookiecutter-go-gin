@@ -1,10 +1,11 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
-	"{{ cookiecutter.project_slug }}/configs"
+	"{{ cookiecutter.go_module }}/configs"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,6 +31,8 @@ func (server *Server) Run() {
 		// MaxHeaderBytes: 1 << 20,
 		Handler: server.Router,
 	}
-	server.HttpServer.ListenAndServe()
+	if err := server.HttpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Error("server failed", "err", err)
+	}
 	// server.Router.Run()
 }

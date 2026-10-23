@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-	"{{ cookiecutter.project_slug }}/configs"
+	"{{ cookiecutter.go_module }}/configs"
 )
 
 func LoggingMiddleware(h asynq.Handler) asynq.Handler {

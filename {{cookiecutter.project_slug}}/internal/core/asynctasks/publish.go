@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-	"{{ cookiecutter.project_slug }}/internal/core/asynctasks/tasks"
+	"{{ cookiecutter.go_module }}/internal/core/asynctasks/tasks"
 )
 
 func PublishDebugTaskTask() error {

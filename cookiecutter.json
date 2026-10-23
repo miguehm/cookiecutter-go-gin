@@ -2,11 +2,21 @@
     "project_name": "Project Name",
     "project_slug": "{{ cookiecutter.project_name.lower()|replace(' ', '')|replace('-', '') }}",
     "description": "A short description of the project.",
+    "author": "Your Name",
+    "email": "you@example.com",
+    "go_module": "github.com/{{ cookiecutter.author|lower|replace(' ', '') }}/{{ cookiecutter.project_slug }}",
+    "license": ["MIT", "Apache-2.0", "BSD-3-Clause", "proprietary"],
     "version": "0.1.0",
+    "use_db": ["yes", "no"],
+    "use_redis": ["yes", "no"],
+    "use_asynq": ["yes", "no"],
+    "use_worker": ["yes", "no"],
+    "use_swagger": ["yes", "no"],
+    "use_pprof": ["yes", "no"],
+    "use_sentry": ["yes", "no"],
     "_copy_without_render": [
         "*.hcl",
         "*.j2",
         "env/_template.env"
     ]
-
 }

@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"{{ cookiecutter.project_slug }}/internal/common/responses"
-	"{{ cookiecutter.project_slug }}/internal/core/services"
-	"{{ cookiecutter.project_slug }}/internal/core/vo"
+	"{{ cookiecutter.go_module }}/internal/common/responses"
+	"{{ cookiecutter.go_module }}/internal/core/services"
+	"{{ cookiecutter.go_module }}/internal/core/vo"
 
 	"github.com/gin-gonic/gin"
 )

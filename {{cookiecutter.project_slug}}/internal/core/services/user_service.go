@@ -1,8 +1,8 @@
 package services
 
 import (
-	"{{ cookiecutter.project_slug }}/internal/core/models"
-	"{{ cookiecutter.project_slug }}/internal/core/repositories"
+	"{{ cookiecutter.go_module }}/internal/core/models"
+	"{{ cookiecutter.go_module }}/internal/core/repositories"
 
 	"github.com/google/uuid"
 )

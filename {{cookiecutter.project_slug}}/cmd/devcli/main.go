@@ -5,15 +5,18 @@ import (
 	"log"
 	"os"
 
-	"{{ cookiecutter.project_slug }}/configs"
-	"{{ cookiecutter.project_slug }}/internal/core/asynctasks"
+	"{{ cookiecutter.go_module }}/configs"
+{% if cookiecutter.use_asynq == "yes" %}
+	"{{ cookiecutter.go_module }}/internal/core/asynctasks"
+{% endif %}
 
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
 	configs.Bootstrap()
-	configs.InitAsynqClient()
+	defer configs.Shutdown()
+
 	app := &cli.App{
 		Commands: []*cli.Command{
 			{
@@ -26,11 +29,13 @@ func main() {
 				Usage:  "fake db",
 				Action: fakedb,
 			},
+{% if cookiecutter.use_asynq == "yes" %}
 			{
 				Name:   "debugtask",
-				Usage:  "fake db",
+				Usage:  "send a debug task",
 				Action: sendDebugTask,
 			},
+{% endif %}
 		},
 	}
 
@@ -66,7 +71,8 @@ func fakedb(cCtx *cli.Context) error {
 	return nil
 }
 
+{% if cookiecutter.use_asynq == "yes" %}
 func sendDebugTask(c *cli.Context) error {
-	asynctasks.PublishDebugTaskTask()
-	return nil
+	return asynctasks.PublishDebugTaskTask()
 }
+{% endif %}

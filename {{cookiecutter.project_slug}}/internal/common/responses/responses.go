@@ -3,8 +3,8 @@ package responses
 import (
 	"net/http"
 
-	"{{ cookiecutter.project_slug }}/internal/core/apierrors"
-	"{{ cookiecutter.project_slug }}/pkg/pagination"
+	"{{ cookiecutter.go_module }}/internal/core/apierrors"
+	"{{ cookiecutter.go_module }}/pkg/pagination"
 
 	"github.com/gin-gonic/gin"
 )
