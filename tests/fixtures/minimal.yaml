@@ -1,0 +1,16 @@
+default_context:
+  project_name: minimal
+  project_slug: minimal
+  description: minimal fixture
+  author: Example
+  email: example@example.com
+  go_module: github.com/example/minimal
+  license: MIT
+  version: 0.1.0
+  use_db: "no"
+  use_redis: "no"
+  use_asynq: "no"
+  use_worker: "no"
+  use_swagger: "no"
+  use_pprof: "no"
+  use_sentry: "no"

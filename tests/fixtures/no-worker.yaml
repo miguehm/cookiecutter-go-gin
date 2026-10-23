@@ -1,0 +1,16 @@
+default_context:
+  project_name: noworker
+  project_slug: noworker
+  description: noworker fixture
+  author: Example
+  email: example@example.com
+  go_module: github.com/example/noworker
+  license: MIT
+  version: 0.1.0
+  use_db: "yes"
+  use_redis: "yes"
+  use_asynq: "yes"
+  use_worker: "no"
+  use_swagger: "yes"
+  use_pprof: "yes"
+  use_sentry: "yes"

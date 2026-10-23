@@ -1,0 +1,16 @@
+default_context:
+  project_name: nosentry
+  project_slug: nosentry
+  description: nosentry fixture
+  author: Example
+  email: example@example.com
+  go_module: github.com/example/nosentry
+  license: MIT
+  version: 0.1.0
+  use_db: "yes"
+  use_redis: "yes"
+  use_asynq: "yes"
+  use_worker: "yes"
+  use_swagger: "yes"
+  use_pprof: "yes"
+  use_sentry: "no"

@@ -1,0 +1,16 @@
+default_context:
+  project_name: noswagger
+  project_slug: noswagger
+  description: noswagger fixture
+  author: Example
+  email: example@example.com
+  go_module: github.com/example/noswagger
+  license: MIT
+  version: 0.1.0
+  use_db: "yes"
+  use_redis: "yes"
+  use_asynq: "yes"
+  use_worker: "yes"
+  use_swagger: "no"
+  use_pprof: "yes"
+  use_sentry: "yes"

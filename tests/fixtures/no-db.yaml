@@ -1,0 +1,16 @@
+default_context:
+  project_name: nodb
+  project_slug: nodb
+  description: nodb fixture
+  author: Example
+  email: example@example.com
+  go_module: github.com/example/nodb
+  license: MIT
+  version: 0.1.0
+  use_db: "no"
+  use_redis: "yes"
+  use_asynq: "yes"
+  use_worker: "yes"
+  use_swagger: "yes"
+  use_pprof: "yes"
+  use_sentry: "yes"
