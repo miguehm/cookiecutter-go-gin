@@ -40,7 +40,7 @@ for path in [
 remove("cmd/devcli")
 {% endif %}
 
-{% if cookiecutter.use_redis == "no" %}
+{% if cookiecutter.use_redis == "no" and cookiecutter.use_asynq == "no" %}
 remove("configs/client_redis.go")
 {% endif %}
 

@@ -2,8 +2,11 @@ package models
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestUserJSONOmitsPassword(t *testing.T) {
@@ -38,6 +41,22 @@ func TestUserJSONKeepsPublicFields(t *testing.T) {
 	for _, expected := range []string{`"firstname":"Ada"`, `"lastname":"Lovelace"`, `"email":"ada@example.com"`} {
 		if !strings.Contains(string(data), expected) {
 			t.Fatalf("expected %s in JSON: %s", expected, data)
+		}
+	}
+}
+
+func TestUserPrimaryKeyIsUUID(t *testing.T) {
+	field, ok := reflect.TypeOf(User{}).FieldByName("ID")
+	if !ok {
+		t.Fatal("User has no ID field")
+	}
+	if field.Type != reflect.TypeOf(uuid.UUID{}) {
+		t.Fatalf("ID type = %s, want uuid.UUID", field.Type)
+	}
+	tag := field.Tag.Get("gorm")
+	for _, part := range []string{"primaryKey", "type:uuid", "default:gen_random_uuid()"} {
+		if !strings.Contains(tag, part) {
+			t.Errorf("gorm tag %q must contain %q", tag, part)
 		}
 	}
 }

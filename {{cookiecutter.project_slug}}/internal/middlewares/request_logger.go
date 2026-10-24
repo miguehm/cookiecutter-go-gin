@@ -91,12 +91,17 @@ func fmtString(v any) string {
 	return ""
 }
 
-func RequestLogger() gin.HandlerFunc {
-	logger := configs.GetLogger()
+func RequestLogger(logger *slog.Logger, cfg *configs.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()
 
-		detail := configs.Env.EnableLogRequestDetail && c.Request.URL.Path != "/healthz"
+		path := c.Request.URL.Path
+		if path == "/healthz" || path == "/readyz" {
+			c.Next()
+			return
+		}
+
+		detail := cfg.EnableLogRequestDetail
 		var bodyBytes []byte
 		if detail && c.Request.Body != nil {
 			bodyBytes, _ = io.ReadAll(c.Request.Body)
@@ -104,10 +109,6 @@ func RequestLogger() gin.HandlerFunc {
 		}
 
 		c.Next()
-
-		if c.Request.URL.Path == "/healthz" {
-			return
-		}
 
 		latency := time.Since(startTime)
 		reqID, _ := c.Get("request_id")
@@ -124,7 +125,7 @@ func RequestLogger() gin.HandlerFunc {
 			slog.String("client_ip", c.ClientIP()),
 		}
 
-		if configs.Env.EnableLogRequestDetail {
+		if cfg.EnableLogRequestDetail {
 			q := c.Request.URL.Query()
 			for k := range q {
 				if sensitiveKeys[strings.ToLower(k)] {

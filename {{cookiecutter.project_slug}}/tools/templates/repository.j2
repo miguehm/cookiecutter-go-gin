@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"{{ go_module }}/configs"
 	"{{ go_module }}/internal/core/models"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -15,21 +15,10 @@ type {{ model_camelcase }}Repository struct {
 	repository[models.{{ model }}, uuid.UUID]
 }
 
-func New{{ model }}Repository(db *gorm.DB) *{{ model_camelcase }}Repository {
-	if db == nil {
-		var err error
-		db, err = configs.GetDB()
-		if err != nil {
-			panic(err)
-		}
-	}
+func New{{ model }}Repository(db *gorm.DB) I{{ model }}Repository {
 	return &{{ model_camelcase }}Repository{
 		repository[models.{{ model }}, uuid.UUID]{
 			db: db,
 		},
 	}
-}
-
-func (r *{{ model_camelcase }}Repository) Get() {
-
 }

@@ -8,7 +8,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"{{ cookiecutter.go_module }}/configs"
+	"log/slog"
+
 	"{{ cookiecutter.go_module }}/internal/core/apierrors"
 
 	"github.com/gin-gonic/gin"
@@ -97,9 +98,7 @@ func ValidationErrorToText(e validator.FieldError) string {
 	return fmt.Sprintf("%s is not valid", word)
 }
 
-func ErrorHandler() gin.HandlerFunc {
-	logger := configs.GetLogger()
-
+func ErrorHandler(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 		if len(c.Errors) > 0 {

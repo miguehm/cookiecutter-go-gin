@@ -6,15 +6,21 @@ import (
 	"{{ cookiecutter.go_module }}/configs"
 )
 
-func TestBuildDatabaseURL(t *testing.T) {
-	configs.Env.DBUser = "app"
-	configs.Env.DBPass = "p@ss"
-	configs.Env.DBHost = "db.example.com"
-	configs.Env.DBPort = "5432"
-	configs.Env.DBName = "mydb"
-	configs.Env.DBSslMode = "require"
+func dbConfig() configs.Config {
+	return configs.Config{
+		DBUser:    "app",
+		DBPass:    "p@ss",
+		DBHost:    "db.example.com",
+		DBPort:    "5432",
+		DBName:    "mydb",
+		DBSslMode: "require",
+	}
+}
 
-	got, err := buildDatabaseURL()
+func TestBuildDatabaseURL(t *testing.T) {
+	cfg := dbConfig()
+
+	got, err := buildDatabaseURL(&cfg)
 	if err != nil {
 		t.Fatalf("buildDatabaseURL returned error: %v", err)
 	}
@@ -26,14 +32,13 @@ func TestBuildDatabaseURL(t *testing.T) {
 }
 
 func TestBuildDatabaseURLWithoutSSLMode(t *testing.T) {
-	configs.Env.DBUser = "app"
-	configs.Env.DBPass = "secret"
-	configs.Env.DBHost = "127.0.0.1"
-	configs.Env.DBPort = "5432"
-	configs.Env.DBName = "app"
-	configs.Env.DBSslMode = ""
+	cfg := dbConfig()
+	cfg.DBPass = "secret"
+	cfg.DBHost = "127.0.0.1"
+	cfg.DBName = "app"
+	cfg.DBSslMode = ""
 
-	got, err := buildDatabaseURL()
+	got, err := buildDatabaseURL(&cfg)
 	if err != nil {
 		t.Fatalf("buildDatabaseURL returned error: %v", err)
 	}
@@ -45,14 +50,13 @@ func TestBuildDatabaseURLWithoutSSLMode(t *testing.T) {
 }
 
 func TestBuildDatabaseURLEscapesIPv6(t *testing.T) {
-	configs.Env.DBUser = "app"
-	configs.Env.DBPass = "secret"
-	configs.Env.DBHost = "::1"
-	configs.Env.DBPort = "5432"
-	configs.Env.DBName = "app"
-	configs.Env.DBSslMode = "disable"
+	cfg := dbConfig()
+	cfg.DBPass = "secret"
+	cfg.DBHost = "::1"
+	cfg.DBName = "app"
+	cfg.DBSslMode = "disable"
 
-	got, err := buildDatabaseURL()
+	got, err := buildDatabaseURL(&cfg)
 	if err != nil {
 		t.Fatalf("buildDatabaseURL returned error: %v", err)
 	}

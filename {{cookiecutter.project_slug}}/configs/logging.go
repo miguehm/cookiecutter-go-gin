@@ -2,13 +2,15 @@ package configs
 
 import (
 {% if cookiecutter.use_sentry == "yes" %}
-	"log"
+	"fmt"
 {% endif %}
 	"log/slog"
 	"os"
-	"sync"
 
 {% if cookiecutter.use_sentry == "yes" %}
+	"context"
+	"time"
+
 	"github.com/getsentry/sentry-go"
 {% endif %}
 	"github.com/phsym/console-slog"
@@ -16,39 +18,55 @@ import (
 {% if cookiecutter.use_sentry == "yes" %}
 	slogsentry "github.com/samber/slog-sentry/v2"
 {% endif %}
+	"go.uber.org/fx"
 )
 
-var logger *slog.Logger
-var onceInitLogger sync.Once
-
-func InitLogger() {
-	GetLogger()
-}
-
-func GetLogger() *slog.Logger {
-	onceInitLogger.Do(func() {
-		handlers := []slog.Handler{
-			console.NewHandler(os.Stdout, &console.HandlerOptions{Level: slog.LevelInfo, NoColor: true}),
-		}
+// NewLogger builds the application logger from the configuration. Nothing is
+// stored in package level state: callers keep the returned logger and pass it
+// around.
+func NewLogger(cfg *Config) (*slog.Logger, error) {
+	handlers := []slog.Handler{
+		console.NewHandler(os.Stdout, &console.HandlerOptions{Level: slog.LevelInfo, NoColor: true}),
+	}
 
 {% if cookiecutter.use_sentry == "yes" %}
-		if Env.SentryDSN != "" {
-			err := sentry.Init(sentry.ClientOptions{
-				Dsn:              Env.SentryDSN,
-				EnableTracing:    false,
-				TracesSampleRate: 1.0,
-				Environment:      Env.Stage,
-			})
-			if err != nil {
-				log.Printf("failed to initialize sentry: %v", err)
-			} else {
-				handlers = append(handlers, slogsentry.Option{Level: slog.LevelWarn}.NewSentryHandler())
-			}
+	if cfg.SentryDSN != "" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:              cfg.SentryDSN,
+			EnableTracing:    false,
+			TracesSampleRate: 1.0,
+			Environment:      cfg.Stage,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to initialize sentry: %w", err)
 		}
+		handlers = append(handlers, slogsentry.Option{Level: slog.LevelWarn}.NewSentryHandler())
+	}
 {% endif %}
 
-		logger = slog.New(slogmulti.Fanout(handlers...))
-		slog.SetDefault(logger)
-	})
-	return logger
+	return slog.New(slogmulti.Fanout(handlers...)), nil
 }
+
+{% if cookiecutter.use_sentry == "yes" %}
+// ProvideLogger is the fx aware variant of NewLogger: it registers the
+// lifecycle hook needed to flush pending events before the app stops.
+func ProvideLogger(lc fx.Lifecycle, cfg *Config) (*slog.Logger, error) {
+	logger, err := NewLogger(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.SentryDSN != "" {
+		lc.Append(fx.Hook{
+			OnStop: func(ctx context.Context) error {
+				sentry.Flush(2 * time.Second)
+				return nil
+			},
+		})
+	}
+	return logger, nil
+}
+{% else %}
+// ProvideLogger is the fx aware variant of NewLogger.
+func ProvideLogger(_ fx.Lifecycle, cfg *Config) (*slog.Logger, error) {
+	return NewLogger(cfg)
+}
+{% endif %}

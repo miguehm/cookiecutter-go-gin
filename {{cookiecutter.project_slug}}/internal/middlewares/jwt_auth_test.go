@@ -8,6 +8,7 @@ import (
 
 	"{{ cookiecutter.go_module }}/configs"
 	"{{ cookiecutter.go_module }}/internal/common/auth"
+	"{{ cookiecutter.go_module }}/internal/testutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -17,15 +18,21 @@ func jwtTestSecret() string {
 	return "testing-secret-change-me-0123456789abcdef"
 }
 
+func jwtTestConfig() *configs.Config {
+	cfg := testutil.NewConfig()
+	cfg.JwtSecret = jwtTestSecret()
+	cfg.JwtIssuer = "go-gin-template"
+	cfg.JwtAudience = "go-gin-template"
+	return cfg
+}
+
 func newJwtApp() *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	configs.Env.JwtSecret = jwtTestSecret()
-	configs.Env.JwtIssuer = "go-gin-template"
-	configs.Env.JwtAudience = "go-gin-template"
+	cfg := jwtTestConfig()
 
 	app := gin.New()
-	app.Use(ErrorHandler())
-	app.Use(JwtAuth())
+	app.Use(ErrorHandler(testutil.NewLogger()))
+	app.Use(JwtAuth(cfg))
 	app.GET("/private", func(c *gin.Context) {
 		userID, _ := c.Get("userID")
 		c.JSON(http.StatusOK, gin.H{"userID": userID})

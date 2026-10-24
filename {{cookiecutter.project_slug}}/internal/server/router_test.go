@@ -10,17 +10,31 @@ import (
 {% if cookiecutter.use_db == "yes" %}
 	"{{ cookiecutter.go_module }}/internal/controllers"
 {% endif %}
+	"{{ cookiecutter.go_module }}/internal/testutil"
 
 	"github.com/gin-gonic/gin"
 )
 
-func newTestRouter() *gin.Engine {
+func newTestConfig() *configs.Config {
+	return testutil.NewConfig()
+}
+
+func newTestRouter(t *testing.T) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
+
+	cfg := newTestConfig()
+	readiness := NewReadiness({% if cookiecutter.use_db == "yes" %}nil{% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}, nil{% endif %}{% elif cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
 {% if cookiecutter.use_db == "yes" %}
-	return NewRouter(controllers.NewUserController(nil))
+	controller := controllers.NewUserController(nil, cfg)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
 {% else %}
-	return NewRouter()
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
 {% endif %}
+	if err != nil {
+		t.Fatalf("NewRouter returned error: %v", err)
+	}
+	return router
 }
 
 func do(router *gin.Engine, method, target string, header map[string]string) *httptest.ResponseRecorder {
@@ -34,7 +48,7 @@ func do(router *gin.Engine, method, target string, header map[string]string) *ht
 }
 
 func TestRouterHealthz(t *testing.T) {
-	rec := do(newTestRouter(), http.MethodGet, "/healthz", nil)
+	rec := do(newTestRouter(t), http.MethodGet, "/healthz", nil)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
@@ -50,8 +64,19 @@ func TestRouterHealthz(t *testing.T) {
 	}
 }
 
+func TestRouterReadyzWithoutDependencies(t *testing.T) {
+	rec := do(newTestRouter(t), http.MethodGet, "/readyz", nil)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"ok"`) {
+		t.Errorf("body = %s", rec.Body.String())
+	}
+}
+
 func TestRouterUnknownPathReturns404(t *testing.T) {
-	rec := do(newTestRouter(), http.MethodGet, "/definitely-not-here", nil)
+	rec := do(newTestRouter(t), http.MethodGet, "/definitely-not-here", nil)
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rec.Code)
@@ -62,14 +87,22 @@ func TestRouterUnknownPathReturns404(t *testing.T) {
 }
 
 func TestRouterCORSWildcardsOrigin(t *testing.T) {
-	configs.Env.CORSAllowedOrigins = "*"
-	configs.Env.CORSAllowCredentials = false
-	defer func() {
-		configs.Env.CORSAllowedOrigins = "*"
-		configs.Env.CORSAllowCredentials = false
-	}()
+	cfg := newTestConfig()
+	cfg.CORSAllowedOrigins = "*"
+	cfg.CORSAllowCredentials = false
+{% if cookiecutter.use_db == "yes" %}
+	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil, nil{% else %}nil{% endif %})
+	controller := controllers.NewUserController(nil, cfg)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+{% else %}
+	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+{% endif %}
+	if err != nil {
+		t.Fatalf("NewRouter returned error: %v", err)
+	}
 
-	rec := do(newTestRouter(), http.MethodGet, "/healthz", map[string]string{"Origin": "https://app.example.com"})
+	rec := do(router, http.MethodGet, "/healthz", map[string]string{"Origin": "https://app.example.com"})
 
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Errorf("Access-Control-Allow-Origin = %q, want \"*\"", got)
@@ -80,14 +113,22 @@ func TestRouterCORSWildcardsOrigin(t *testing.T) {
 }
 
 func TestRouterCORSExplicitOrigins(t *testing.T) {
-	configs.Env.CORSAllowedOrigins = "https://app.example.com"
-	configs.Env.CORSAllowCredentials = true
-	defer func() {
-		configs.Env.CORSAllowedOrigins = "*"
-		configs.Env.CORSAllowCredentials = false
-	}()
+	cfg := newTestConfig()
+	cfg.CORSAllowedOrigins = "https://app.example.com"
+	cfg.CORSAllowCredentials = true
+{% if cookiecutter.use_db == "yes" %}
+	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil, nil{% else %}nil{% endif %})
+	controller := controllers.NewUserController(nil, cfg)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+{% else %}
+	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+{% endif %}
+	if err != nil {
+		t.Fatalf("NewRouter returned error: %v", err)
+	}
 
-	rec := do(newTestRouter(), http.MethodGet, "/healthz", map[string]string{"Origin": "https://app.example.com"})
+	rec := do(router, http.MethodGet, "/healthz", map[string]string{"Origin": "https://app.example.com"})
 
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
 		t.Errorf("Access-Control-Allow-Origin = %q", got)
@@ -98,14 +139,22 @@ func TestRouterCORSExplicitOrigins(t *testing.T) {
 }
 
 func TestRouterCORSRejectsUnknownOrigin(t *testing.T) {
-	configs.Env.CORSAllowedOrigins = "https://app.example.com"
-	configs.Env.CORSAllowCredentials = false
-	defer func() {
-		configs.Env.CORSAllowedOrigins = "*"
-		configs.Env.CORSAllowCredentials = false
-	}()
+	cfg := newTestConfig()
+	cfg.CORSAllowedOrigins = "https://app.example.com"
+	cfg.CORSAllowCredentials = false
+{% if cookiecutter.use_db == "yes" %}
+	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil, nil{% else %}nil{% endif %})
+	controller := controllers.NewUserController(nil, cfg)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+{% else %}
+	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+{% endif %}
+	if err != nil {
+		t.Fatalf("NewRouter returned error: %v", err)
+	}
 
-	rec := do(newTestRouter(), http.MethodGet, "/healthz", map[string]string{"Origin": "https://evil.example.com"})
+	rec := do(router, http.MethodGet, "/healthz", map[string]string{"Origin": "https://evil.example.com"})
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("status = %d, want 403 for a disallowed origin", rec.Code)

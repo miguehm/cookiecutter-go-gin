@@ -1,56 +1,71 @@
 package main
 
 import (
-	"crypto/tls"
-	"fmt"
-	"log"
+	"context"
+	"log/slog"
 
 	"{{ cookiecutter.go_module }}/configs"
-
-	"github.com/hibiken/asynq"
 	"{{ cookiecutter.go_module }}/internal/core/asynctasks"
 	"{{ cookiecutter.go_module }}/internal/core/asynctasks/tasks"
+
+	"github.com/hibiken/asynq"
+	"go.uber.org/fx"
 )
 
 func main() {
-	configs.MustBootstrap()
-	defer configs.Shutdown()
+	app := fx.New(
+		fx.Provide(
+			configs.NewConfig,
+			configs.ProvideLogger,
+			newAsynqServer,
+			newServeMux,
+		),
+		fx.Invoke(runWorker),
+	)
+	app.Run()
+}
 
-	var tlsConfig *tls.Config
-	if configs.Env.RedisEnableSsl {
-		tlsConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-	}
-
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{
-			Addr:      fmt.Sprintf("%s:%s", configs.Env.RedisHost, configs.Env.RedisPort),
-			Password:  configs.Env.RedisPass,
-			TLSConfig: tlsConfig,
-			DB:        configs.Env.RedisTaskDB,
-		},
+func newAsynqServer(cfg *configs.Config) *asynq.Server {
+	return asynq.NewServer(
+		configs.AsynqRedisOpt(cfg),
 		asynq.Config{
-			// Specify how many concurrent workers to use
-			Concurrency: 500,
-			// Optionally specify multiple queues with different priority.
+			Concurrency: cfg.WorkerConcurrency,
 			Queues: map[string]int{
-				//"critical": 6,
 				"default": 1,
-				//"low":      1,
 			},
-			// See the godoc for other configuration options
 		},
 	)
+}
 
+func newServeMux(logger *slog.Logger) *asynq.ServeMux {
 	mux := asynq.NewServeMux()
-	mux.Use(asynctasks.LoggingMiddleware)
-
-	// mux maps a type to a handler
+	mux.Use(asynctasks.LoggingMiddleware(logger))
 	mux.HandleFunc(tasks.TypeEmailDelivery, tasks.HandleEmailDelivery)
 	mux.HandleFunc(tasks.TypeDebugTask, tasks.HandleDebugTask)
+	return mux
+}
 
-	if err := srv.Run(mux); err != nil {
-		log.Fatalf("could not run server: %v", err)
-	}
+// runWorker starts the Asynq server during boot and drains in-flight tasks on
+// shutdown, which is what makes SIGTERM a graceful stop.
+func runWorker(lc fx.Lifecycle, srv *asynq.Server, mux *asynq.ServeMux, cfg *configs.Config, logger *slog.Logger) {
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			logger.Info("starting asynq worker", "concurrency", cfg.WorkerConcurrency)
+			return srv.Start(mux)
+		},
+		OnStop: func(ctx context.Context) error {
+			logger.Info("shutting down asynq worker")
+			done := make(chan struct{})
+			go func() {
+				srv.Shutdown()
+				close(done)
+			}()
+			select {
+			case <-done:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
+	})
 }

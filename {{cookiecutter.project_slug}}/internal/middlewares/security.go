@@ -20,7 +20,7 @@ func BodyLimit(maxBytes int64) gin.HandlerFunc {
 	}
 }
 
-func SecurityHeaders() gin.HandlerFunc {
+func SecurityHeaders(cfg *configs.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if strings.HasPrefix(path, "/docs") || strings.HasPrefix(path, "/asynqmon") {
@@ -39,7 +39,7 @@ func SecurityHeaders() gin.HandlerFunc {
 		c.Header("Cross-Origin-Resource-Policy", "same-origin")
 		c.Header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
 
-		if configs.Env.EnableHSTS {
+		if cfg.EnableHSTS {
 			c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 

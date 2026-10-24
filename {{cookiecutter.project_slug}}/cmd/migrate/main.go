@@ -10,31 +10,28 @@ import (
 	"{{ cookiecutter.go_module }}/configs"
 )
 
-func buildDatabaseURL() (string, error) {
+func buildDatabaseURL(cfg *configs.Config) (string, error) {
 	u := &url.URL{
 		Scheme: "postgresql",
-		User:   url.UserPassword(configs.Env.DBUser, configs.Env.DBPass),
-		Host:   net.JoinHostPort(configs.Env.DBHost, configs.Env.DBPort),
-		Path:   "/" + configs.Env.DBName,
+		User:   url.UserPassword(cfg.DBUser, cfg.DBPass),
+		Host:   net.JoinHostPort(cfg.DBHost, cfg.DBPort),
+		Path:   "/" + cfg.DBName,
 	}
 	q := u.Query()
-	if configs.Env.DBSslMode != "" {
-		q.Set("sslmode", configs.Env.DBSslMode)
+	if cfg.DBSslMode != "" {
+		q.Set("sslmode", cfg.DBSslMode)
 	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil
 }
 
 func main() {
-	if err := configs.LoadEnv(); err != nil {
+	cfg, err := configs.NewConfig()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if err := configs.Env.Validate(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	dsn, err := buildDatabaseURL()
+	dsn, err := buildDatabaseURL(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

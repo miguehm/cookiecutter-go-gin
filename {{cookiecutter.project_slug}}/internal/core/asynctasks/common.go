@@ -2,7 +2,7 @@ package asynctasks
 
 import (
 	"encoding/json"
-	"fmt"
+	"log/slog"
 
 	"github.com/gin-gonic/gin"
 
@@ -11,23 +11,25 @@ import (
 	"{{ cookiecutter.go_module }}/configs"
 )
 
-func AddAsynqmonRoute(r *gin.Engine) {
-	if !configs.Env.EnableAsynqmon {
+// AddAsynqmonRoute mounts the asynq dashboard behind HTTP basic auth. The
+// credentials are validated at boot, so a missing or default credential set
+// only means the route is not exposed.
+func AddAsynqmonRoute(r *gin.Engine, cfg *configs.Config, logger *slog.Logger) {
+	if !cfg.EnableAsynqmon {
 		return
 	}
-	if configs.Env.BasicAuthUser == "" || configs.Env.BasicAuthPass == "" {
-		panic("asynqmon enabled but BASIC_AUTH_USER/BASIC_AUTH_PASS are empty")
-	}
-	if configs.Env.BasicAuthUser == "dev" && configs.Env.BasicAuthPass == "dev" {
-		panic("asynqmon enabled but BASIC_AUTH_USER/PASS must not use dev/dev defaults")
+	if cfg.BasicAuthUser == "" || cfg.BasicAuthPass == "" ||
+		(cfg.BasicAuthUser == "dev" && cfg.BasicAuthPass == "dev") {
+		logger.Warn("asynqmon disabled: BASIC_AUTH_USER/PASS are missing or use the dev/dev defaults")
+		return
 	}
 	basicAuthMidd := gin.BasicAuth(gin.Accounts{
-		configs.Env.BasicAuthUser: configs.Env.BasicAuthPass,
+		cfg.BasicAuthUser: cfg.BasicAuthPass,
 	})
 
 	h := asynqmon.New(asynqmon.Options{
 		RootPath:     "/asynqmon",
-		RedisConnOpt: configs.GetAsynqRedisOpt(),
+		RedisConnOpt: configs.AsynqRedisOpt(cfg),
 	})
 
 	r.Any(h.RootPath()+"/*a", basicAuthMidd, gin.WrapH(h))
@@ -39,20 +41,4 @@ func NewTask[T any](taskType string, data T) (*asynq.Task, error) {
 		return nil, err
 	}
 	return asynq.NewTask(taskType, payload), nil
-}
-
-func PublishTask[T any](taskType string, payload T, opts ...asynq.Option) error {
-	task, err := NewTask(taskType, payload)
-	if err != nil {
-		return fmt.Errorf("could not create task: %w", err)
-	}
-	client, err := configs.GetAsynqClient()
-	if err != nil {
-		return err
-	}
-	_, err = client.Enqueue(task, opts...)
-	if err != nil {
-		return fmt.Errorf("could not enqueue task: %w", err)
-	}
-	return nil
 }

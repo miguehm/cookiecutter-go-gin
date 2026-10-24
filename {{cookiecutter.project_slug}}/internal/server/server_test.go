@@ -1,9 +1,14 @@
 package server
 
 import (
+	"context"
+	"io"
+	"net"
 	"net/http"
 	"testing"
 	"time"
+
+	"{{ cookiecutter.go_module }}/internal/testutil"
 )
 
 func TestNewHTTPServerTimeouts(t *testing.T) {
@@ -36,5 +41,70 @@ func TestNewHTTPServerTimeouts(t *testing.T) {
 
 	if srv.MaxHeaderBytes != 1<<20 {
 		t.Errorf("MaxHeaderBytes = %d, se espera %d", srv.MaxHeaderBytes, 1<<20)
+	}
+}
+
+func TestServerStartFailsWhenPortIsBusy(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("no se pudo reservar un puerto: %v", err)
+	}
+	defer func() { _ = listener.Close() }()
+
+	cfg := testutil.NewConfig()
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	cfg.Port = port
+
+	server := NewServer(cfg, testutil.NewLogger(), newTestRouter(t))
+	if err := server.Start(); err == nil {
+		t.Fatal("Start debía fallar con el puerto ocupado")
+	}
+}
+
+func TestServerShutdownClosesConnections(t *testing.T) {
+	cfg := testutil.NewConfig()
+	cfg.Port = "0"
+
+	server := NewServer(cfg, testutil.NewLogger(), newTestRouter(t))
+	if err := server.Start(); err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if server.Addr() == "" {
+		t.Fatal("Addr debe devolver la dirección real tras Start")
+	}
+
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- server.Serve() }()
+
+	_, port, err := net.SplitHostPort(server.Addr())
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	resp, err := http.Get("http://127.0.0.1:" + port + "/healthz")
+	if err != nil {
+		t.Fatalf("GET /healthz: %v", err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		t.Fatalf("Shutdown returned error: %v", err)
+	}
+
+	select {
+	case err := <-serveErr:
+		if err != nil {
+			t.Fatalf("Serve returned %v after a clean shutdown", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve no terminó tras el apagado")
 	}
 }

@@ -33,4 +33,22 @@ var (
 		ErrorCode: "ErrAccessTokenInvalid",
 		Message:   "Access token invalid",
 	}
+
+	ErrInvalidCredentials = &APIError{
+		Status:    http.StatusUnauthorized,
+		ErrorCode: "ErrInvalidCredentials",
+		Message:   "Invalid email or password",
+	}
+
+	ErrUserNotFound = &APIError{
+		Status:    http.StatusNotFound,
+		ErrorCode: "ErrUserNotFound",
+		Message:   "User not found",
+	}
+
+	ErrEmailTaken = &APIError{
+		Status:    http.StatusConflict,
+		ErrorCode: "ErrEmailTaken",
+		Message:   "Email already registered",
+	}
 )

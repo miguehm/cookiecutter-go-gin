@@ -4,13 +4,16 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"{{ cookiecutter.go_module }}/configs"
 	"{{ cookiecutter.go_module }}/internal/common/auth"
 	"{{ cookiecutter.go_module }}/internal/common/responses"
 	"{{ cookiecutter.go_module }}/internal/core/apierrors"
 )
 
-func JwtAuth() gin.HandlerFunc {
+// JwtAuth validates the Bearer token of the request and exposes the subject
+// of the token as "userID" in the context.
+func JwtAuth(cfg *configs.Config) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authorizationHeader := ctx.GetHeader("Authorization")
 
@@ -27,11 +30,12 @@ func JwtAuth() gin.HandlerFunc {
 		tokenString := fields[1]
 
 		opts := auth.JwtOptions{
-			Issuer:   configs.Env.JwtIssuer,
-			Audience: configs.Env.JwtAudience,
+			Issuer:   cfg.JwtIssuer,
+			Audience: cfg.JwtAudience,
+			Leeway:   cfg.JwtLeeway,
 		}
-		claims, err := auth.VerifyJwtToken(configs.Env.JwtSecret, tokenString, opts)
-		if err != nil {
+		claims, err := auth.VerifyJwtToken(cfg.JwtSecret, tokenString, opts)
+		if err != nil || claims.UserID == uuid.Nil {
 			responses.AbortWithAPIError(ctx, apierrors.ErrAccessTokenInvalid)
 			return
 		}

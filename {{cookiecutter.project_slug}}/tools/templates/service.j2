@@ -3,16 +3,15 @@ package services
 import (
 	"{{ go_module }}/internal/core/models"
 	"{{ go_module }}/internal/core/repositories"
-	"gorm.io/gorm"
 )
 
 type {{ model }}Service struct {
 	{{ model_camelcase }}Repository repositories.I{{ model }}Repository
 }
 
-func New{{ model }}Service(db *gorm.DB) *{{ model }}Service {
+func New{{ model }}Service(repo repositories.I{{ model }}Repository) *{{ model }}Service {
 	return &{{ model }}Service{
-		{{ model_camelcase }}Repository: repositories.New{{ model }}Repository(db),
+		{{ model_camelcase }}Repository: repo,
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"{{ cookiecutter.go_module }}/internal/testutil"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,14 +66,17 @@ func TestRequestLoggerSkipsHealthz(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	app := gin.New()
-	app.Use(RequestLogger())
+	app.Use(RequestLogger(testutil.NewLogger(), testutil.NewConfig()))
 	app.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
+	app.GET("/readyz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
-	app.ServeHTTP(rec, req)
+	for _, path := range []string{"/healthz", "/readyz"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		app.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d", rec.Code)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status for %s = %d", path, rec.Code)
+		}
 	}
 }

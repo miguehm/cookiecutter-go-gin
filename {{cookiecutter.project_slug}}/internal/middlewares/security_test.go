@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"{{ cookiecutter.go_module }}/configs"
 	"{{ cookiecutter.go_module }}/internal/testutil"
 
 	"github.com/gin-gonic/gin"
@@ -14,10 +13,11 @@ import (
 
 func TestSecurityHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	configs.Env.EnableHSTS = false
+	cfg := testutil.NewConfig()
+	cfg.EnableHSTS = false
 
 	ctx, rec := testutil.NewContext(http.MethodGet, "/api/things", nil)
-	SecurityHeaders()(ctx)
+	SecurityHeaders(cfg)(ctx)
 
 	header := rec.Header()
 	for key, want := range map[string]string{
@@ -41,7 +41,7 @@ func TestSecurityHeadersDocsRelaxed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	ctx, rec := testutil.NewContext(http.MethodGet, "/docs/index.html", nil)
-	SecurityHeaders()(ctx)
+	SecurityHeaders(testutil.NewConfig())(ctx)
 
 	if rec.Header().Get("X-Frame-Options") == "DENY" {
 		t.Error("docs should not use DENY frame options")
@@ -53,11 +53,11 @@ func TestSecurityHeadersDocsRelaxed(t *testing.T) {
 
 func TestSecurityHeadersHSTS(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	configs.Env.EnableHSTS = true
-	defer func() { configs.Env.EnableHSTS = false }()
+	cfg := testutil.NewConfig()
+	cfg.EnableHSTS = true
 
 	ctx, rec := testutil.NewContext(http.MethodGet, "/api/things", nil)
-	SecurityHeaders()(ctx)
+	SecurityHeaders(cfg)(ctx)
 
 	if got := rec.Header().Get("Strict-Transport-Security"); got != "max-age=31536000; includeSubDomains" {
 		t.Errorf("HSTS = %q", got)

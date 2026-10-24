@@ -1,7 +1,11 @@
 package server
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -11,13 +15,18 @@ import (
 )
 
 type Server struct {
-	Router     *gin.Engine
-	HttpServer *http.Server
+	cfg        *configs.Config
+	logger     *slog.Logger
+	router     *gin.Engine
+	httpServer *http.Server
+	listener   net.Listener
 }
 
-func NewServer(router *gin.Engine) *Server {
+func NewServer(cfg *configs.Config, logger *slog.Logger, router *gin.Engine) *Server {
 	return &Server{
-		Router: router,
+		cfg:    cfg,
+		logger: logger,
+		router: router,
 	}
 }
 
@@ -33,11 +42,47 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 	}
 }
 
-func (server *Server) Run() {
-	logger := configs.GetLogger()
-	logger.Info("Listening to address: 0.0.0.0:" + configs.Env.Port)
-	server.HttpServer = newHTTPServer(":"+configs.Env.Port, server.Router)
-	if err := server.HttpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("server failed", "err", err)
+// Start reserves the TCP port so that a failure (port already in use, missing
+// permission) is reported before the application reports itself as running.
+func (s *Server) Start() error {
+	// #nosec G102 -- el bind deliberado es ":<puerto>" para que la imagen
+	// funcione dentro del contenedor y del orquestador.
+	listener, err := net.Listen("tcp", ":"+s.cfg.Port)
+	if err != nil {
+		return fmt.Errorf("can't listen on port %s: %w", s.cfg.Port, err)
 	}
+	s.listener = listener
+	s.httpServer = newHTTPServer(listener.Addr().String(), s.router)
+	s.logger.Info("listening on " + listener.Addr().String())
+	return nil
+}
+
+// Addr returns the address the server is listening on, which is only known
+// after Start (useful when the port is 0).
+func (s *Server) Addr() string {
+	if s.listener == nil {
+		return ""
+	}
+	return s.listener.Addr().String()
+}
+
+// Serve blocks until the server stops. A clean shutdown is not reported as an
+// error.
+func (s *Server) Serve() error {
+	if s.httpServer == nil || s.listener == nil {
+		return fmt.Errorf("server has not been started")
+	}
+	err := s.httpServer.Serve(s.listener)
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+// Shutdown drains in-flight requests up to the deadline given by the caller.
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.httpServer == nil {
+		return nil
+	}
+	return s.httpServer.Shutdown(ctx)
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -28,31 +29,39 @@ import (
 {% endif %}
 )
 
-func NewRouter({% if cookiecutter.use_db == "yes" %}userController *controllers.UserController{% endif %}) *gin.Engine {
+func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness{% if cookiecutter.use_db == "yes" %}, userController *controllers.UserController{% endif %}) (*gin.Engine, error) {
+	gin.SetMode(cfg.GinMode)
 	router := gin.New()
-	_ = router.SetTrustedProxies(trustedProxiesList())
+	_ = router.SetTrustedProxies(trustedProxiesList(cfg))
 	router.Use(gin.Recovery())
 	router.Use(middlewares.RequestID())
-	router.Use(middlewares.SecurityHeaders())
-	router.Use(middlewares.BodyLimit(configs.Env.MaxBodyBytes))
+	router.Use(middlewares.SecurityHeaders(cfg))
+	router.Use(middlewares.BodyLimit(cfg.MaxBodyBytes))
 {% if cookiecutter.use_sentry == "yes" %}
 	router.Use(sentrygin.New(sentrygin.Options{
 		Repanic: true,
 	}))
 {% endif %}
-	router.Use(cors.New(corsConfig()))
-	router.Use(middlewares.ErrorHandler())
-	router.Use(middlewares.RequestLogger())
+	router.Use(cors.New(corsConfig(cfg)))
+	router.Use(middlewares.ErrorHandler(logger))
+	router.Use(middlewares.RequestLogger(logger, cfg))
 
-	rateLimiter := middlewares.NewRateLimiter(configs.Env.RateLimitRPS, configs.Env.RateLimitBurst, configs.Env.RateLimitEnabled)
-	router.Use(rateLimiter.Middleware("/healthz"))
+	rateLimiter := middlewares.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst, cfg.RateLimitEnabled)
+	router.Use(rateLimiter.Middleware("/healthz", "/readyz"))
+
+	router.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+	router.GET("/readyz", readiness.Handler())
 
 {% if cookiecutter.use_db == "yes" %}
-	router.GET("/login", userController.SignUp)
+	router.POST("/signup", userController.CreateUser)
+	router.POST("/login", userController.Login)
+	router.GET("/me", middlewares.JwtAuth(cfg), userController.Me)
 {% endif %}
 
 {% if cookiecutter.use_swagger == "yes" %}
-	if configs.Env.EnableSwagger {
+	if cfg.EnableSwagger {
 		router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 {% endif %}
@@ -61,26 +70,20 @@ func NewRouter({% if cookiecutter.use_db == "yes" %}userController *controllers.
 		c.JSON(http.StatusNotFound, gin.H{"message": "ErrNotFound", "error": "ErrNotFound"})
 	})
 
-	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "success"})
-	})
-
 {% if cookiecutter.use_asynq == "yes" %}
-	if configs.Env.EnableAsynqmon {
-		asynctasks.AddAsynqmonRoute(router)
-	}
+	asynctasks.AddAsynqmonRoute(router, cfg, logger)
 {% endif %}
 {% if cookiecutter.use_pprof == "yes" %}
-	if configs.Env.EnablePPROF {
+	if cfg.EnablePPROF {
 		pprof.Register(router, "pprof")
 	}
 {% endif %}
 
-	return router
+	return router, nil
 }
 
-func corsConfig() cors.Config {
-	origins := allowedOriginsList()
+func corsConfig(cfg *configs.Config) cors.Config {
+	origins := allowedOriginsList(cfg)
 	if len(origins) == 0 {
 		return cors.Config{
 			AllowOrigins:     []string{"*"},
@@ -91,7 +94,7 @@ func corsConfig() cors.Config {
 			MaxAge:           24 * time.Hour,
 		}
 	}
-	creds := configs.Env.CORSAllowCredentials
+	creds := cfg.CORSAllowCredentials
 	if creds {
 		for _, o := range origins {
 			if o == "*" {
@@ -110,11 +113,11 @@ func corsConfig() cors.Config {
 	}
 }
 
-func allowedOriginsList() []string {
-	if configs.Env.CORSAllowedOrigins == "" {
+func allowedOriginsList(cfg *configs.Config) []string {
+	if cfg.CORSAllowedOrigins == "" {
 		return nil
 	}
-	parts := strings.Split(configs.Env.CORSAllowedOrigins, ",")
+	parts := strings.Split(cfg.CORSAllowedOrigins, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
@@ -125,11 +128,11 @@ func allowedOriginsList() []string {
 	return out
 }
 
-func trustedProxiesList() []string {
-	if configs.Env.TrustedProxies == "" {
+func trustedProxiesList(cfg *configs.Config) []string {
+	if cfg.TrustedProxies == "" {
 		return nil
 	}
-	parts := strings.Split(configs.Env.TrustedProxies, ",")
+	parts := strings.Split(cfg.TrustedProxies, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)

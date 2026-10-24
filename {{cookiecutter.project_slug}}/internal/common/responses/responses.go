@@ -30,6 +30,15 @@ func Ok(c *gin.Context, data any) {
 	})
 }
 
+// Created answers 201 with the created representation of the resource.
+func Created(c *gin.Context, data any) {
+	c.JSON(http.StatusCreated, ResponseOK{
+		Code:    "Success",
+		Message: "Success",
+		Data:    data,
+	})
+}
+
 func OkWithPagination(c *gin.Context, page *pagination.Page) {
 	c.JSON(http.StatusOK, ResponseOKWithPagination{
 		Code:    "Success",

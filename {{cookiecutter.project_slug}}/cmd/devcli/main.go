@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"{{ cookiecutter.go_module }}/configs"
@@ -13,69 +13,97 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func main() {
-	configs.MustBootstrap()
-	defer configs.Shutdown()
+// devCli keeps the loaded configuration and logger instead of reading them
+// from package level globals.
+type devCli struct {
+	cfg    *configs.Config
+	logger *slog.Logger
+}
 
+func main() {
+	cfg, err := configs.NewConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	logger, err := configs.NewLogger(cfg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	a := &devCli{cfg: cfg, logger: logger}
 	app := &cli.App{
 		Commands: []*cli.Command{
 			{
 				Name:   "dropdb",
 				Usage:  "reset db",
-				Action: dropdb,
+				Action: a.dropdb,
 			},
 			{
 				Name:   "fakedb",
 				Usage:  "fake db",
-				Action: fakedb,
+				Action: a.fakedb,
 			},
 {% if cookiecutter.use_asynq == "yes" %}
 			{
 				Name:   "debugtask",
 				Usage:  "send a debug task",
-				Action: sendDebugTask,
+				Action: a.debugtask,
 			},
 {% endif %}
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		logger.Error("command failed", "err", err)
+		os.Exit(1)
 	}
 }
 
-func dropdb(cCtx *cli.Context) error {
-	db, err := configs.GetDB()
+func (a *devCli) dropdb(cCtx *cli.Context) error {
+	db, err := configs.NewDB(a.cfg)
 	if err != nil {
 		return err
 	}
-	tbs, err := db.Migrator().GetTables()
-
-	for _, table := range tbs {
-		if err := db.Migrator().DropTable(table); err != nil {
-			log.Printf("failed to drop table %s: %v", table, err)
-		} else {
-			log.Printf("successfully dropped table %s", table)
+	defer func() {
+		if err := configs.CloseDB(db); err != nil {
+			a.logger.Error("failed to close database connection", "err", err)
 		}
+	}()
+
+	tables, err := db.Migrator().GetTables()
+	if err != nil {
+		return fmt.Errorf("failed to list tables: %w", err)
+	}
+	for _, table := range tables {
+		if err := db.Migrator().DropTable(table); err != nil {
+			return fmt.Errorf("failed to drop table %s: %w", table, err)
+		}
+		a.logger.Info("dropped table", "table", table)
 	}
 
-	log.Printf("drop schema atlas_schema_revisions")
-	if err := db.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", "atlas_schema_revisions")).Error; err != nil {
-		log.Println("Error dropping schema:", err)
-		return err
+	if err := db.Exec("DROP SCHEMA IF EXISTS atlas_schema_revisions CASCADE").Error; err != nil {
+		return fmt.Errorf("failed to drop atlas schema: %w", err)
 	}
+	a.logger.Info("dropped schema", "schema", "atlas_schema_revisions")
 
-	return err
+	return nil
 }
 
-func fakedb(cCtx *cli.Context) error {
-	// db := configs.GetDB()
+func (a *devCli) fakedb(cCtx *cli.Context) error {
 	// Fake db here
 	return nil
 }
 
 {% if cookiecutter.use_asynq == "yes" %}
-func sendDebugTask(c *cli.Context) error {
-	return asynctasks.PublishDebugTaskTask()
+func (a *devCli) debugtask(cCtx *cli.Context) error {
+	client := configs.NewAsynqClient(a.cfg)
+	defer func() {
+		if err := configs.CloseAsynqClient(client); err != nil {
+			a.logger.Error("failed to close asynq client", "err", err)
+		}
+	}()
+	return asynctasks.NewPublisher(client).DebugTask()
 }
 {% endif %}
