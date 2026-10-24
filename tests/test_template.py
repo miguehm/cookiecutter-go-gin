@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import socket
@@ -142,7 +143,9 @@ def test_generated_project_conditional_files(generated_projects, fixture):
         "tools/go.mod": use_db,
         "atlas.hcl": use_db,
         "migrations/.gitkeep": use_db,
-        "configs/client_redis.go": use_redis,
+        "migrations/20261024000000_users.sql": use_db,
+        "migrations/atlas.sum": use_db,
+        "configs/client_redis.go": use_redis or use_asynq,
         "configs/client_asynq.go": use_asynq,
         "internal/core/asynctasks": use_asynq,
         "cmd/worker/main.go": use_worker,
@@ -165,6 +168,54 @@ def test_generated_project_conditional_files(generated_projects, fixture):
     if use_db:
         assert "module " in (project / "go.mod").read_text(encoding="utf-8")
         assert "_test" in (project / "env/testing.env").read_text(encoding="utf-8")
+
+
+ARCHITECTURE_BANNED = (
+    "configs.Env",
+    "configs.GetDB",
+    "configs.GetRedis",
+    "configs.GetLogger",
+    "configs.GetAsynqClient",
+    "MustBootstrap",
+    "runtime.Caller",
+)
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_project_architecture(generated_projects, fixture):
+    """Fase 3: sin estado global, sin singletons y con configuración portable."""
+    project = generated_projects[fixture]["path"]
+
+    for package in ("pkg", "configs", "internal", "cmd"):
+        for path in (project / package).rglob("*.go"):
+            content = path.read_text(encoding="utf-8")
+            for banned in ARCHITECTURE_BANNED:
+                assert banned not in content, f"{path.relative_to(project)} usa {banned}"
+
+    env_files = sorted((project / "env").glob("*.env"))
+    assert env_files, "la plantilla debe generar al menos un fichero env"
+    for path in env_files:
+        if path.name.startswith("_"):
+            continue
+        values = _read_env_file(path)
+        assert "WORKER_CONCURRENCY" in values, f"{path.name} sin WORKER_CONCURRENCY"
+        assert int(values["WORKER_CONCURRENCY"]) > 0, f"{path.name}: WORKER_CONCURRENCY inválida"
+
+    worker_concurrency = int(_read_env_file(project / "env/testing.env")["WORKER_CONCURRENCY"])
+    configs = (project / "configs/env.go").read_text(encoding="utf-8")
+    assert "WorkerConcurrency int" in configs, "Config no expone WorkerConcurrency"
+    env_tests = (project / "configs/env_test.go").read_text(encoding="utf-8")
+    assert f"WorkerConcurrency: {worker_concurrency}" in env_tests, (
+        "los defaults del test de configuración no reflejan WORKER_CONCURRENCY"
+    )
+
+    if generated_projects[fixture]["context"]["use_worker"] == "yes":
+        worker_main = (project / "cmd/worker/main.go").read_text(encoding="utf-8")
+        assert "Concurrency: cfg.WorkerConcurrency" in worker_main
+        assert "srv.Shutdown()" in worker_main
+
+    router_source = (project / "internal/server/router.go").read_text(encoding="utf-8")
+    assert "/healthz" in router_source and "/readyz" in router_source
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)
@@ -297,6 +348,24 @@ def _docker_available(project):
     return result.returncode == 0
 
 
+def _post_json(url, payload, token=None):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return response.status, json.loads(response.read().decode("utf-8"))
+
+
+def _get_json(url, token=None):
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    request = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return response.status, json.loads(response.read().decode("utf-8"))
+
+
 def test_full_project_http_smoke(generated_projects):
     project = generated_projects["full"]["path"]
 
@@ -313,6 +382,14 @@ def test_full_project_http_smoke(generated_projects):
         assert _wait_for_port(5432), "Postgres no abrió el puerto"
         assert _wait_for_port(6379), "Redis no abrió el puerto"
 
+        # Migración inicial fuera del arranque de la API (3.4). Con
+        # podman-compose el "run" recrea el proyecto, así que se vuelve a
+        # levantar la pila y se comprueba que Redis sigue accesible.
+        run(["docker", "compose", "--profile", "migrate", "run", "--rm", "atlas"], cwd=project)
+        run(["docker", "compose", "up", "-d"], cwd=project)
+        assert _wait_for_port(5432), "Postgres no volvió a abrir el puerto"
+        assert _wait_for_port(6379), "Redis no volvió a abrir el puerto"
+
         run(["go", "build", "-o", "/tmp/cookiecutter-smoke-http", "./cmd/http"], cwd=project, env=env)
         server = subprocess.Popen(
             ["/tmp/cookiecutter-smoke-http"],
@@ -328,6 +405,48 @@ def test_full_project_http_smoke(generated_projects):
             if server.poll() is not None:
                 output = server.stdout.read() if server.stdout else ""
             pytest.fail(f"la API no respondió en /healthz. Salida:\n{output}")
+
+        # 3.8: readiness con comprobación real de DB y Redis.
+        status, ready = _get_json("http://127.0.0.1:8080/readyz")
+        assert status == 200, f"/readyz devolvió {status}: {ready}"
+        assert ready["status"] == "ok", ready
+
+        # 3.7: flujo de ejemplo signup -> login -> me con JwtAuth.
+        email = "smoke@example.com"
+        status, body = _post_json(
+            "http://127.0.0.1:8080/signup",
+            {
+                "firstname": "Smoke",
+                "lastname": "Test",
+                "email": email,
+                "password": "s3cret-password",
+            },
+        )
+        assert status == 201, f"/signup devolvió {status}: {body}"
+        assert "password" not in json.dumps(body), f"la respuesta filtra la contraseña: {body}"
+
+        status, body = _post_json(
+            "http://127.0.0.1:8080/login",
+            {"email": email, "password": "s3cret-password"},
+        )
+        assert status == 200, f"/login devolvió {status}: {body}"
+        token = body["data"]["token"]
+        assert token, f"sin token en la respuesta: {body}"
+
+        status, body = _get_json("http://127.0.0.1:8080/me", token=token)
+        assert status == 200, f"/me devolvió {status}: {body}"
+        assert body["data"]["email"] == email, body
+
+        # 3.5: SIGTERM debe terminar con apagado limpio (código 0).
+        server.terminate()
+        try:
+            server.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            server.kill()
+            server.wait(timeout=10)
+            pytest.fail("el servidor no respondió a SIGTERM")
+        assert server.returncode == 0, f"código de salida {server.returncode} tras SIGTERM"
+        server = None
     finally:
         if server is not None and server.poll() is None:
             server.terminate()
