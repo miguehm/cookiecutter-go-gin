@@ -377,3 +377,82 @@ def test_generated_go_module_is_used(generated_projects):
 
         router = (project / "internal/server/router.go").read_text(encoding="utf-8")
         assert go_module in router, f"{fixture} no usa go_module en router.go"
+
+
+def _read_env_file(path):
+    values = {}
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"')
+    return values
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_security_hardening(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+
+    dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
+    assert 'CMD ["./http"]' in dockerfile, "el CMD principal no debe ejecutar migraciones"
+    assert "atlas migrate apply" not in dockerfile
+
+    entrypoint = project / "entrypoint.sh"
+    source = entrypoint.read_text(encoding="utf-8")
+    assert "set -eu" in source
+    assert 'exec "$@"' in source
+    smoke = run(["sh", str(entrypoint), "echo", "entrypoint-ok"], cwd=project)
+    assert smoke.stdout.strip() == "entrypoint-ok"
+
+    data = yaml.safe_load(
+        (project / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    assert "security" in data["jobs"], "falta el job de seguridad en la CI"
+    assert data["permissions"]["security-events"] == "write"
+    assert data["jobs"]["security"]["timeout-minutes"]
+
+    assert (project / ".gitleaks.toml").exists(), "falta .gitleaks.toml"
+
+    user = (project / "internal" / "core" / "models" / "user.go").read_text(encoding="utf-8")
+    password_line = next(
+        (line for line in user.splitlines() if "Password" in line), ""
+    )
+    assert 'json:"-"' in password_line, "Password no debe serializarse en JSON"
+
+    prod = _read_env_file(project / "env" / "prod.env")
+    for key in ("ENABLE_SWAGGER", "ENABLE_ASYNQMON", "ENABLE_PPROF"):
+        assert prod[key] == "false", f"{key} debe estar desactivado en prod.env"
+
+    for package in ("pkg", "configs", "internal"):
+        for path in (project / package).rglob("*.go"):
+            content = path.read_text(encoding="utf-8")
+            assert "log.Fatal" not in content, f"{path.relative_to(project)} usa log.Fatal"
+
+
+@pytest.mark.parametrize("fixture", ["full"])
+def test_generated_project_gosec(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    env = environment()
+
+    if shutil.which("gosec") is None:
+        if os.environ.get("REQUIRE_SECURITY") == "1":
+            raise AssertionError("REQUIRE_SECURITY=1 pero gosec no está instalado")
+        pytest.skip("gosec no está instalado")
+
+    run(["gosec", "-quiet", "./..."], cwd=project, env=env)
+
+
+@pytest.mark.parametrize("fixture", ["full"])
+def test_generated_project_gitleaks(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+
+    if shutil.which("gitleaks") is None:
+        if os.environ.get("REQUIRE_SECURITY") == "1":
+            raise AssertionError("REQUIRE_SECURITY=1 pero gitleaks no está instalado")
+        pytest.skip("gitleaks no está instalado")
+
+    run(
+        ["gitleaks", "detect", "--source", ".", "--no-git", "--config", ".gitleaks.toml"],
+        cwd=project,
+    )
