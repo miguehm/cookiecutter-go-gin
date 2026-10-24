@@ -58,11 +58,11 @@ checkbox en GitHub, pero son legibles en crudo.
 |---|---:|---:|---:|---|
 | 0 | 49 | 49 | 0 | `make test-template` |
 | 1 | 7 | 7 | 0 | `go mod tidy -diff` + build reproducible |
-| 2 | 20 | 0 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
+| 2 | 20 | 20 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
 | 3 | 8 | 0 | 0 | sin globales ni `log.Fatal` en librerías |
 | 4 | 8 | 0 | 0 | CI completa sobre la matriz |
 | 5 | 8 | 0 | 0 | modo interactivo + `--no-input` |
-| **Total** | **100** | **56** | **0** | — |
+| **Total** | **100** | **76** | **0** | — |
 
 ### Dependencias entre fases
 
@@ -438,51 +438,96 @@ Criterio de aceptación: `go list -m -u all` sin actualizaciones relevantes,
 
 ### Checklist
 
-- [ ] **2.1** Validar `order_type` (`asc|desc`), el `Op` de cada filtro y la
+- [x] **2.1** Validar `order_type` (`asc|desc`), el `Op` de cada filtro y la
       whitelist de columnas en `pkg/filters/filters.go:114`.
-- [ ] **2.2** Usar `uuid.Parse` en `pkg/filters/filters.go:37` (hoy usa
+- [x] **2.2** Usar `uuid.Parse` en `pkg/filters/filters.go:37` (hoy usa
       `uuid.FromBytes` con bytes de longitud arbitraria).
-- [ ] **2.3** Devolver error de validación en filtros en lugar de loguear y
+- [x] **2.3** Devolver error de validación en filtros en lugar de loguear y
       omitir el filtro silenciosamente.
-- [ ] **2.4** Aplicar límites de paginación: `page >= 1`, `size >= 1` y tamaño
+- [x] **2.4** Aplicar límites de paginación: `page >= 1`, `size >= 1` y tamaño
       máximo configurable (`maxSize`); rechazar valores negativos o gigantes.
-- [ ] **2.5** Propagar el error de `Find` en `pkg/pagination/pagination.go:70`
+- [x] **2.5** Propagar el error de `Find` en `pkg/pagination/pagination.go:70`
       en lugar de ignorarlo.
-- [ ] **2.6** JWT: validar `alg` (`jwt.WithValidMethods`), exigir `Bearer`,
+- [x] **2.6** JWT: validar `alg` (`jwt.WithValidMethods`), exigir `Bearer`,
       añadir `iat/iss/aud/jti`, expiración configurable y leeway.
-- [ ] **2.7** `Password json:"-"` en `internal/core/models/user.go:12`.
-- [ ] **2.8** Corregir CORS (`AllowOrigins: "*"` + `AllowCredentials: true`) en
+- [x] **2.7** `Password json:"-"` en `internal/core/models/user.go:12`.
+- [x] **2.8** Corregir CORS (`AllowOrigins: "*"` + `AllowCredentials: true`) en
       `internal/server/router.go:31`; usar whitelist por entorno.
-- [ ] **2.9** Desactivar por defecto Swagger, Asynqmon y pprof en producción;
+- [x] **2.9** Desactivar por defecto Swagger, Asynqmon y pprof en producción;
       credenciales de Asynqmon sin `dev/dev` y fallo al arrancar si están
       vacías.
-- [ ] **2.10** Pasar `RequestLogger` a `slog`, redactar
+- [x] **2.10** Pasar `RequestLogger` a `slog`, redactar
       body/cookies/`password`/tokens y añadir `X-Request-ID`.
-- [ ] **2.11** Añadir límites HTTP: `ReadHeaderTimeout`, `ReadTimeout`,
+- [x] **2.11** Añadir límites HTTP: `ReadHeaderTimeout`, `ReadTimeout`,
       `WriteTimeout`, `IdleTimeout`, `MaxHeaderBytes`, `http.MaxBytesReader`,
       límite de body multipart y `TrustedProxies` explícitos.
-- [ ] **2.12** Añadir cabeceras de seguridad y flags seguros de cookies si se
+- [x] **2.12** Añadir cabeceras de seguridad y flags seguros de cookies si se
       añaden sesiones.
-- [ ] **2.13** Añadir rate limit en login/endpoints sensibles.
-- [ ] **2.14** Quitar `log.Fatal` de librerías (`pkg/converter`, `configs/*`);
+- [x] **2.13** Añadir rate limit en login/endpoints sensibles.
+- [x] **2.14** Quitar `log.Fatal` de librerías (`pkg/converter`, `configs/*`);
       devolver errores y fallar en `main`.
-- [ ] **2.15** Deprecar MD5 en `pkg/cryptography/hash.go` y usar
-      bcrypt/Argon2id para contraseñas.
-- [ ] **2.16** Validar configuración obligatoria al arrancar (`JWT_SECRET` con
+- [x] **2.15** Deprecar MD5 en `pkg/cryptography/hash.go` y usar
+      bcrypt/Argon2id para contraseñas. *(decisión 4: `HashMD5` se eliminó y
+      `HashSHA256` pasa a devolver hex; las contraseñas siguen en bcrypt)*.
+- [x] **2.16** Validar configuración obligatoria al arrancar (`JWT_SECRET` con
       longitud mínima, credenciales de DB/Redis, `BASIC_AUTH_*` si Asynqmon
       está activo).
-- [ ] **2.17** No migrar automáticamente en cada arranque: job/flag separado,
+- [x] **2.17** No migrar automáticamente en cada arranque: job/flag separado,
       sin `atlas migrate apply` en el `CMD` principal.
-- [ ] **2.18** Añadir `sslmode` a `DATABASE_URL` en `entrypoint.sh`, escapar
-      credenciales con `url.URL` y usar `set -eu`.
-- [ ] **2.19** Añadir `govulncheck`, `gosec`, `trivy` y escaneo de secretos
+- [x] **2.18** Añadir `sslmode` a `DATABASE_URL` en `entrypoint.sh`, escapar
+      credenciales con `url.URL` y usar `set -eu`. *(decisión 2: la URL se
+      construye en `cmd/migrate` con `net/url`, `entrypoint.sh` queda en
+      `set -eu` + `exec "$@"`)*.
+- [x] **2.19** Añadir `govulncheck`, `gosec`, `trivy` y escaneo de secretos
       (`gitleaks`) a la CI, fijados por versión y publicando SARIF cuando sea
       posible.
-- [ ] **2.20** Añadir tests para filtros, paginación, JWT y validación de
+- [x] **2.20** Añadir tests para filtros, paginación, JWT y validación de
       configuración, siguiendo la estrategia de 0.4.
 
 Criterio de aceptación: revisión de seguridad sin hallazgos críticos,
 `govulncheck`/`gosec`/`gitleaks` en verde y tests de filtros/JWT/paginación.
+
+#### Evidencia Fase 2
+
+- `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template`: **60
+  pasados, 1 saltado** (smoke de `compose` en `minimal`). La matriz de los 8
+  fixtures compila, hace `go vet`, `go test ./...`, `golangci-lint v2.15.0` y
+  `govulncheck` limpios.
+- `gosec` (v2.30.0) en verde sobre el fixture `full`. La única señal real
+  (G204 en `cmd/migrate`) se resolvió con `#nosec` justificado: el argv es
+  fijo y `dsn` se construye con `net/url`, sin shell de por medio. La versión
+  fijada antes (v2.22.9) no soporta el toolchain de Go 1.27.3.
+- `gitleaks` (v8.28.0) con `.gitleaks.toml`: 0 fugas sobre la plantilla y
+  sobre el proyecto generado. Verificado que la configuración sigue
+  detectando un token plantado, es decir, que el allowlist no apaga la
+  herramienta.
+- `trivy` (v0.76.1): 0 secretos en la plantilla y en el generado. El escaneo
+  de vulnerabilidades queda informativo (`--exit-code 0`) porque marca CVEs a
+  nivel de módulo que `govulncheck`, por grafo de llamadas, considera no
+  alcanzables; ambos publican SARIF en la CI.
+- Corrección de generación: cookiecutter **sí** renderiza
+  `{{cookiecutter.project_slug}}/.github/workflows/ci.yml`, por lo que las
+  expresiones de GitHub Actions van envueltas en `{% raw %}`; sin eso la
+  generación fallaba con `'github' is undefined`. El `.github/workflows/ci.yml`
+  de la raíz no forma parte del template y no se renderiza.
+- `configs.Validate()` ya no lee el global `Env` al validar una copia del
+  valor (`splitOrigins`), lo que permitía que una validación con CORS en
+  `prod` pasara en silencio.
+- `RequestLogger` solo amortigua el body cuando `ENABLE_LOG_REQUEST_DETAIL=true`;
+  con el flag apagado deja `http.MaxBytesReader` intacto en vez de
+  neutralizarlo.
+- `HashMD5` se eliminó (decisión 4) y `HashSHA256` ahora devuelve hex.
+- Nuevos tests: `internal/middlewares/{security,request_logger,ratelimit,jwt_auth}_test.go`,
+  `internal/server/{router,server}_test.go`, `pkg/cryptography/hash_test.go`,
+  `internal/core/models/user_test.go`, `cmd/migrate/main_test.go`,
+  `configs/prod_env_test.go`, más las ampliaciones de `filters`, `pagination`,
+  `auth` y `configs`.
+- Arnés: `test_generated_security_hardening` (CMD sin migración, smoke real
+  de `entrypoint.sh`, job `security` en la CI, prod sin flags expuestos, sin
+  `log.Fatal` en `pkg/`+`configs/`+`internal/`, `Password json:"-"`),
+  `test_generated_project_gosec` y `test_generated_project_gitleaks`.
+- README: nueva sección «Seguridad», `cmd/migrate` en la estructura y
+  `make security`.
 
 ## Fase 3 — Arquitectura
 

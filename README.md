@@ -59,6 +59,7 @@ Los flags se definen con `yes`/`no` y se validan en
 cmd/http/          API HTTP
 cmd/worker/        worker de Asynq (si use_worker=yes)
 cmd/devcli/        utilidades de desarrollo (si use_db=yes)
+cmd/migrate/       aplica migraciones de Atlas (si use_db=yes)
 tools/cmd/atlas_loader/  loader de esquema GORM para Atlas (si use_db=yes)
 configs/           configuración y clientes
 internal/          controladores, servicios, repositorios y middleware
@@ -92,14 +93,44 @@ uvx --from "cookiecutter==${COOKIECUTTER_VERSION}" cookiecutter --no-input \
 ```
 
 Y sobre el proyecto generado se ejecutan `go mod tidy`, `go mod tidy -diff`,
-`go build ./...`, `go vet ./...`, `go test ./...`, `golangci-lint run` y
-`govulncheck ./...`. El arnés puede usar red y cachear `GOMODCACHE` y
-`UV_CACHE_DIR`; los hooks de generación no usan red.
+`go build ./...`, `go vet ./...`, `go test ./...`, `golangci-lint run`,
+`govulncheck ./...`, `gosec -quiet ./...` y `gitleaks detect`. El arnés puede
+usar red y cachear `GOMODCACHE` y `UV_CACHE_DIR`; los hooks de generación no
+usan red.
 
-`golangci-lint` y `govulncheck` deben estar en `PATH`; si faltan, sus tests se
-saltan. Durante la Fase 0 las vulnerabilidades de dependencias antiguas se
-registran como `xfail`; usa `REQUIRE_GOVULNCHECK=1 make test-template` para
-convertirlas en fallo (previsto para la Fase 1).
+`golangci-lint`, `govulncheck`, `gosec` y `gitleaks` deben estar en `PATH`; si
+faltan, sus tests se saltan. En CI se fijan las versiones y se activan
+`REQUIRE_GOVULNCHECK=1` y `REQUIRE_SECURITY=1` para que la ausencia de una
+herramienta sea un fallo, no un salto:
+
+```sh
+REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template
+make security   # gitleaks + trivy sobre el código de la plantilla
+```
+
+## Seguridad
+
+Lo que la plantilla aplica por defecto en el proyecto generado:
+
+- `configs.Bootstrap()` valida la configuración al arrancar (`STAGE`,
+  `JWT_SECRET` con longitud mínima, credenciales de DB/Redis, `BASIC_AUTH_*` si
+  Asynqmon está activo y CORS en `prod`) y aborta si algo falta. Ninguna
+  librería usa `log.Fatal`: devuelven errores y los `main` deciden.
+- CORS por entorno (`CORS_ALLOWED_ORIGINS`/`CORS_ALLOW_CREDENTIALS`), con
+  fallo cerrado en `prod` y sin `*` combinado con credenciales.
+- Cabeceras de seguridad (`X-Frame-Options`, CSP, HSTS opcional), límite de
+  body con `http.MaxBytesReader`, `TrustedProxies` explícitos y timeouts
+  completos del servidor.
+- Rate limit en memoria (`golang.org/x/time/rate`) con `/healthz` exento.
+- JWT HS256 con `alg`, `iss`, `aud`, `iat`, `jti`, expiración y leeway
+  configurables vía `JWT_*`.
+- Logs estructurados con `slog`, `X-Request-ID` y redacción de
+  `password`/`token`/`authorization`/`cookie` en bodies y query.
+- Migraciones fuera del arranque: `CMD ["./http"]` y un binario `./migrate`
+  (más el job de CI `integration`) que aplica `atlas migrate apply` con la URL
+  construida vía `net/url`.
+- La CI generada incluye `gosec`, `govulncheck`, `gitleaks` y `trivy`
+  fijados por versión y publica SARIF.
 
 ## Features
 
@@ -110,13 +141,15 @@ convertirlas en fallo (previsto para la Fase 1).
 - GORM y Atlas para base de datos y migraciones.
 - Slog + Sentry para logging.
 - Viper para configuración por entorno.
-- JWT auth.
+- JWT auth con validación de `alg`, `iss`, `aud` y expiración.
+- CORS, rate limit, cabeceras de seguridad y límites HTTP por configuración.
 - Generadores de modelo, repositorio y servicio con `invoke` + Jinja2.
 
 ## Comandos útiles
 
 ```sh
 make test-template   # genera todos los fixtures y los valida
+make security        # gitleaks + trivy sobre el código de la plantilla
 make help            # ayuda del Makefile raíz
 ```
 
