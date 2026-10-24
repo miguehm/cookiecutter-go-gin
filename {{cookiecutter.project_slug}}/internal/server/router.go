@@ -2,11 +2,10 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
-{% if cookiecutter.use_pprof == "yes" %}
 	"{{ cookiecutter.go_module }}/configs"
-{% endif %}
 {% if cookiecutter.use_db == "yes" %}
 	"{{ cookiecutter.go_module }}/internal/controllers"
 {% endif %}
@@ -31,38 +30,33 @@ import (
 
 func NewRouter({% if cookiecutter.use_db == "yes" %}userController *controllers.UserController{% endif %}) *gin.Engine {
 	router := gin.New()
+	_ = router.SetTrustedProxies(trustedProxiesList())
 	router.Use(gin.Recovery())
+	router.Use(middlewares.RequestID())
+	router.Use(middlewares.SecurityHeaders())
+	router.Use(middlewares.BodyLimit(configs.Env.MaxBodyBytes))
 {% if cookiecutter.use_sentry == "yes" %}
 	router.Use(sentrygin.New(sentrygin.Options{
 		Repanic: true,
 	}))
 {% endif %}
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:     []string{"*"},
-		ExposeHeaders:    []string{"*"},
-		AllowCredentials: true,
-		MaxAge:           24 * time.Hour,
-	}))
+	router.Use(cors.New(corsConfig()))
 	router.Use(middlewares.ErrorHandler())
 	router.Use(middlewares.RequestLogger())
+
+	rateLimiter := middlewares.NewRateLimiter(configs.Env.RateLimitRPS, configs.Env.RateLimitBurst, configs.Env.RateLimitEnabled)
+	router.Use(rateLimiter.Middleware("/healthz"))
 
 {% if cookiecutter.use_db == "yes" %}
 	router.GET("/login", userController.SignUp)
 {% endif %}
 
-	// api := r.Group("/api/wallet/v1")
-	// api.POST("/login", controllers.PlayerLoginHandler)
-
-	// 	api.POST("/users/:id", middlewares.AuthMiddleware(), s.DeleteUser)
-
 {% if cookiecutter.use_swagger == "yes" %}
-	// Docs
-	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	if configs.Env.EnableSwagger {
+		router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 {% endif %}
 
-	// Not Found Route
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "ErrNotFound", "error": "ErrNotFound"})
 	})
@@ -72,8 +66,9 @@ func NewRouter({% if cookiecutter.use_db == "yes" %}userController *controllers.
 	})
 
 {% if cookiecutter.use_asynq == "yes" %}
-	// AddAsynqmonRoute
-	asynctasks.AddAsynqmonRoute(router)
+	if configs.Env.EnableAsynqmon {
+		asynctasks.AddAsynqmonRoute(router)
+	}
 {% endif %}
 {% if cookiecutter.use_pprof == "yes" %}
 	if configs.Env.EnablePPROF {
@@ -82,4 +77,65 @@ func NewRouter({% if cookiecutter.use_db == "yes" %}userController *controllers.
 {% endif %}
 
 	return router
+}
+
+func corsConfig() cors.Config {
+	origins := allowedOriginsList()
+	if len(origins) == 0 {
+		return cors.Config{
+			AllowOrigins:     []string{"*"},
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+			AllowHeaders:     []string{"Authorization", "Content-Type", "X-Request-ID"},
+			ExposeHeaders:    []string{"X-Request-ID"},
+			AllowCredentials: false,
+			MaxAge:           24 * time.Hour,
+		}
+	}
+	creds := configs.Env.CORSAllowCredentials
+	if creds {
+		for _, o := range origins {
+			if o == "*" {
+				creds = false
+				break
+			}
+		}
+	}
+	return cors.Config{
+		AllowOrigins:     origins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Content-Type", "X-Request-ID"},
+		ExposeHeaders:    []string{"X-Request-ID"},
+		AllowCredentials: creds,
+		MaxAge:           24 * time.Hour,
+	}
+}
+
+func allowedOriginsList() []string {
+	if configs.Env.CORSAllowedOrigins == "" {
+		return nil
+	}
+	parts := strings.Split(configs.Env.CORSAllowedOrigins, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func trustedProxiesList() []string {
+	if configs.Env.TrustedProxies == "" {
+		return nil
+	}
+	parts := strings.Split(configs.Env.TrustedProxies, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

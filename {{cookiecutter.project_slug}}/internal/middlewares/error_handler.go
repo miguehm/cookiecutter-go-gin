@@ -102,7 +102,6 @@ func ErrorHandler() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		c.Next()
-		// Only run if there are some errors to handle
 		if len(c.Errors) > 0 {
 			for _, e := range c.Errors {
 				var errMessage string
@@ -113,7 +112,7 @@ func ErrorHandler() gin.HandlerFunc {
 						if !c.Writer.Written() {
 							c.JSON(apiError.Status, gin.H{"code": apiError.ErrorCode, "message": apiError.Message})
 						}
-						if apiError.ErrorCode == "ErrSessionInvalid" { // Ignore log errors
+						if apiError.ErrorCode == "ErrSessionInvalid" {
 							logger.Info(e.Error())
 						} else {
 							errMessage = e.Error()
@@ -122,7 +121,6 @@ func ErrorHandler() gin.HandlerFunc {
 						errMessage = e.Error()
 					}
 				case gin.ErrorTypeBind:
-					// Make sure we maintain the preset response status
 					status := http.StatusBadRequest
 					if c.Writer.Status() != http.StatusOK {
 						status = c.Writer.Status()
@@ -145,11 +143,14 @@ func ErrorHandler() gin.HandlerFunc {
 					errMessage = "unexpected error: " + e.Error()
 				}
 				if errMessage != "" {
-					logger.Error("error when call api " + c.Request.URL.Path + ": " + errMessage)
+					reqID, _ := c.Get("request_id")
+					if reqID == nil {
+						reqID = c.Writer.Header().Get("X-Request-ID")
+					}
+					logger.Error("error when call api "+c.Request.URL.Path+": "+errMessage, "request_id", reqID)
 				}
 
 			}
-			// If there was no public or bind error, display default 500 message
 			if !c.Writer.Written() {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": "ErrUnexpected", "message": "whoops! something went wrong"})
 			}

@@ -21,18 +21,23 @@ func NewServer(router *gin.Engine) *Server {
 	}
 }
 
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+		Handler:           handler,
+	}
+}
+
 func (server *Server) Run() {
 	logger := configs.GetLogger()
 	logger.Info("Listening to address: 0.0.0.0:" + configs.Env.Port)
-	server.HttpServer = &http.Server{
-		Addr:         ":" + configs.Env.Port,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		// MaxHeaderBytes: 1 << 20,
-		Handler: server.Router,
-	}
+	server.HttpServer = newHTTPServer(":"+configs.Env.Port, server.Router)
 	if err := server.HttpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("server failed", "err", err)
 	}
-	// server.Router.Run()
 }
