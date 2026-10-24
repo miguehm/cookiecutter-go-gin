@@ -59,10 +59,10 @@ checkbox en GitHub, pero son legibles en crudo.
 | 0 | 49 | 49 | 0 | `make test-template` |
 | 1 | 7 | 7 | 0 | `go mod tidy -diff` + build reproducible |
 | 2 | 20 | 20 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
-| 3 | 8 | 0 | 0 | sin globales ni `log.Fatal` en librerías |
+| 3 | 8 | 8 | 0 | sin globales ni `log.Fatal` en librerías |
 | 4 | 8 | 0 | 0 | CI completa sobre la matriz |
 | 5 | 8 | 0 | 0 | modo interactivo + `--no-input` |
-| **Total** | **100** | **76** | **0** | — |
+| **Total** | **100** | **84** | **0** | — |
 
 ### Dependencias entre fases
 
@@ -546,26 +546,101 @@ Criterio de aceptación: revisión de seguridad sin hallazgos críticos,
 
 ### Checklist
 
-- [ ] **3.1** Migrar `DB`, `Redis`, `Asynq` y `Logger` de singletons globales a
+- [x] **3.1** Migrar `DB`, `Redis`, `Asynq` y `Logger` de singletons globales a
       providers de fx con `fx.Hook` para cierre, tanto en `cmd/http` como en
-      `cmd/worker`.
-- [ ] **3.2** Eliminar los `GetDB/GetRedis/GetLogger/GetAsynqClient` globales y
-      sus `log.Fatal`.
-- [ ] **3.3** Sustituir la carga de env basada en `runtime.Caller` por
+      `cmd/worker`. *(decisión 1: se mantiene Viper con una instancia aislada
+      `viper.New()` + `BindEnv` en lugar de Koanf; decisión 2: `*configs.Config`
+      se inyecta completo, sin getters)*.
+- [x] **3.2** Eliminar los `GetDB/GetRedis/GetLogger/GetAsynqClient` globales y
+      sus `log.Fatal`. *(`configs/hooks.go` desaparece: `NewConfig`,
+      `NewLogger`, `NewDB`, `NewRedis` y `NewAsynqClient` devuelven valores)*.
+- [x] **3.3** Sustituir la carga de env basada en `runtime.Caller` por
       configuración portable (koanf/envconfig o `viper.BindEnv`) que funcione
-      desde cualquier directorio y en tests.
-- [ ] **3.4** Unificar el tipo de PK: `User` debe usar `uuid.UUID` como el
-      repositorio/VO.
-- [ ] **3.5** Worker: concurrencia configurable y shutdown graceful ante
-      SIGTERM.
-- [ ] **3.6** Corregir `server.Run` para propagar errores de `ListenAndServe` y
-      apagarse limpiamente.
-- [ ] **3.7** Completar el flujo de ejemplo (bind, validación, servicio,
-      errores) en `user_controller.go` y registrar `JwtAuth`.
-- [ ] **3.8** Añadir health/readiness con comprobación real de DB y Redis.
+      desde cualquier directorio y en tests. *(`Load(LoadOptions)` con
+      `ENV_FILE`/`ENV_DIR` y búsqueda ascendente de `env/<stage>.env` desde el
+      cwd y desde el binario; sin `init()` ni globals)*.
+- [x] **3.4** Unificar el tipo de PK: `User` debe usar `uuid.UUID` como el
+      repositorio/VO. *(decisión 3: además se incluye la migración inicial
+      `migrations/20261024000000_users.sql` con su `atlas.sum`)*.
+- [x] **3.5** Worker: concurrencia configurable y shutdown graceful ante
+      SIGTERM. *(decisión 4: `WORKER_CONCURRENCY=10` por defecto, expuesto en
+      `env/*.env`; `OnStop` drena las tareas y respeta el `ctx` de fx)*.
+- [x] **3.6** Corregir `server.Run` para propagar errores de `ListenAndServe` y
+      apagarse limpiamente. *(`Server.Start` reserva el puerto antes de arrancar,
+      `Serve` normaliza `http.ErrServerClosed` y `Shutdown` cierra con
+      contexto; el fallo de `Serve` para la aplicación con código ≠0)*.
+- [x] **3.7** Completar el flujo de ejemplo (bind, validación, servicio,
+      errores) en `user_controller.go` y registrar `JwtAuth`. *(`POST /signup`,
+      `POST /login` y `GET /me`, con `Leeway` y rechazo de `uuid.Nil`)*.
+- [x] **3.8** Añadir health/readiness con comprobación real de DB y Redis.
+      *(`GET /healthz` de liveness y `GET /readyz` con comprobaciones
+      condicionales y timeout de 2 s)*.
 
 Criterio de aceptación: sin estado global mutable, testeable, sin `log.Fatal`
 en librerías y con apagado limpio.
+
+#### Evidencia Fase 3
+
+- `make test-template`: **68 pasados, 1 saltado** (el smoke de `compose config`
+  se salta porque el provider local es `podman-compose`). La matriz de los 8
+  fixtures pasa `go build ./...`, `go vet ./...`, `go test ./...`,
+  `golangci-lint`, `govulncheck` y `gosec` sin hallazgos.
+- **3.1/3.2**: `configs/env.go`, `logging.go`, `client_db.go`,
+  `client_redis.go` y `client_asynq.go` pasan a `NewX(cfg)` +
+  `ProvideX(lc, ...)`; `configs/hooks.go` (con `Bootstrap`, `MustBootstrap`,
+  `Shutdown` y `GetDB`) se eliminó. `cmd/http` registra `Start` en `OnStart`
+  (el bind ocupa el puerto antes de reportar arranque), `Serve` en una goroutine
+  que para la app con código ≠0 y `Shutdown` en `OnStop`; `gin.SetMode` vive en
+  `NewRouter`, que ahora devuelve `(*gin.Engine, error)`.
+- **3.3**: `Load(LoadOptions)` lee `ENV_FILE`/`ENV_DIR` o busca
+  `env/<stage>.env` hacia arriba desde el cwd y desde el binario, usa una
+  instancia aislada de Viper con `SetDefault`+`BindEnv` por reflexión y no
+  toca estado del paquete. 7 tests nuevos cubren cwd ajeno, override de
+  variable, `ENV_FILE` explícito, archivo ausente y stage inválido.
+- **3.4**: `User.ID` es `uuid.UUID` (`default:gen_random_uuid()`), el VO usa la
+  misma clave y hay test con `reflect` sobre el tipo y las tags. La migración
+  inicial se generó desde un `AutoMigrate` real contra Postgres 16 (se vertió
+  el DDL con `pg_dump`) y se validó aplicándola con
+  `arigaio/atlas:1.3.5-alpine`; su `atlas.sum` se calculó con
+  `migrate hash`. `compose.yaml` añade el volumen `pgdata` porque con
+  `podman-compose` el `compose run` recrea el proyecto y perdía los datos.
+- **3.5**: `WORKER_CONCURRENCY` está en `env/{dev,testing,prod,_template}.env`,
+  se valida en `Validate()` y se aplica en `asynq.Config.Concurrency`;
+  `runWorker` drena con `srv.Shutdown()` en una goroutine y devuelve `ctx.Err()`
+  si fx agota su timeout. `cmd/worker/main_test.go` cubre el registro de
+  handlers, el arranque y el apagado acotado por el `ctx` (con Redis disponible
+  recorre el ciclo completo; sin él solo verifica el registro). La señal la
+  cubre el smoke: `SIGTERM` ⇒ código 0.
+- **3.6**: `Server` con `Start`/`Serve`/`Shutdown`/`Addr`, timeouts completos y
+  tests de puerto ocupado y de apagado (`Serve` devuelve `nil` tras un
+  `Shutdown` limpio).
+- **3.7**: `POST /signup`, `POST /login` y `GET /me` con `JwtAuth`; tests de
+  servicio (hash bcrypt, credenciales, usuario inexistente, email duplicado) y
+  de controlador (400 con detalle, 201 sin filtrar contraseña, flujo completo
+  con token, 401 sin/ con token inválido).
+- **3.8**: `/healthz` y `/readyz` registrados en `NewRouter` (exentos de CORS,
+  rate limit y log de acceso); `Readiness` añade `db` y `redis` según los
+  flags, con timeout de 2 s y respuesta `503` nombrando la dependencia caída.
+  `health_test.go` cubre el caso sin dependencias, el fallo y el timeout.
+- Arnés nuevo: `test_generated_project_architecture` verifica que ningún `.go`
+  contiene `configs.Env`, `configs.GetDB/GetRedis/GetLogger/GetAsynqClient`,
+  `MustBootstrap` ni `runtime.Caller`, que todos los `env/*.env` definen
+  `WORKER_CONCURRENCY`, que el worker usa `cfg.WorkerConcurrency` y que el
+  router publica `/healthz` y `/readyz`. El smoke ampliado aplica la migración
+  antes de arrancar y comprueba `/readyz`, el flujo `signup → login → me` y la
+  salida 0 tras `SIGTERM`.
+- Correcciones derivadas: `configs/client_redis.go` se conserva con
+  `use_asynq=yes` (sin Redis no hay readiness ni cliente de cola) y
+  `post_gen_project.py` + `test_generated_project_conditional_files` reflejan
+  esa regla; dos `#nosec` justificados (`G703` en `os.Stat` de la búsqueda del
+  env y `G102` en el bind `:<puerto>` del servidor).
+- Generadores: `repository.j2` y `service.j2` ya no usan `configs.GetDB` ni
+  construyen dependencias internamente, siguen el patrón de
+  `NewUserRepository(db)`/`NewUserService(repo)` y el proyecto sigue compilando
+  tras `inv gen-model`.
+- README: secciones «Arquitectura» y endpoints (`/healthz`, `/readyz` y el flujo
+  JWT cuando hay base de datos), `WORKER_CONCURRENCY` en configuración y
+  corrección de `configs.Bootstrap()` por `configs.NewConfig()` en la raíz.
 
 ## Fase 4 — DX y CI
 

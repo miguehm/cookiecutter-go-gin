@@ -112,10 +112,11 @@ make security   # gitleaks + trivy sobre el código de la plantilla
 
 Lo que la plantilla aplica por defecto en el proyecto generado:
 
-- `configs.Bootstrap()` valida la configuración al arrancar (`STAGE`,
+- `configs.NewConfig()` carga y valida la configuración al arrancar (`STAGE`,
   `JWT_SECRET` con longitud mínima, credenciales de DB/Redis, `BASIC_AUTH_*` si
-  Asynqmon está activo y CORS en `prod`) y aborta si algo falta. Ninguna
-  librería usa `log.Fatal`: devuelven errores y los `main` deciden.
+  Asynqmon está activo, CORS en `prod` y `WORKER_CONCURRENCY`) y devuelve error
+  si algo falta; `fx` aborta el arranque. Ninguna librería usa `log.Fatal`:
+  devuelven errores y los `main` deciden.
 - CORS por entorno (`CORS_ALLOWED_ORIGINS`/`CORS_ALLOW_CREDENTIALS`), con
   fallo cerrado en `prod` y sin `*` combinado con credenciales.
 - Cabeceras de seguridad (`X-Frame-Options`, CSP, HSTS opcional), límite de
@@ -134,7 +135,7 @@ Lo que la plantilla aplica por defecto en el proyecto generado:
 
 ## Features
 
-- Go fx para inyección de dependencias.
+- Go fx para inyección de dependencias (sin singletons globales).
 - Patrón repositorio + servicio.
 - Asynq y Asynqmon para tareas distribuidas.
 - pprof para debugging.

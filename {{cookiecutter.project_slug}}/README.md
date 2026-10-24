@@ -22,7 +22,14 @@ Proyecto generado con `cookiecutter-go-gin`.
 make run
 ```
 
-La aplicación escucha en `http://localhost:8080` y expone `GET /healthz`.
+La aplicación escucha en `http://localhost:8080` y expone:
+
+- `GET /healthz`: liveness; responde 200 mientras el proceso viva.
+- `GET /readyz`: readiness; comprueba DB y Redis cuando están habilitados y
+  responde 503 con el nombre de la dependencia caída.
+{% if cookiecutter.use_db == "yes" %}- `POST /signup`, `POST /login` y `GET /me`: flujo de ejemplo autenticado con
+  JWT (`Authorization: Bearer <token>` en `/me`).
+{% endif %}
 
 ## Configuración
 
@@ -39,7 +46,8 @@ Archivos incluidos:
 - `env/testing.env`: tests automáticos.
 - `env/_template.env`: plantilla usada por `inv format-env`.
 
-Cambia `JWT_SECRET` y las credenciales de base de datos antes de desplegar.
+{% if cookiecutter.use_asynq == "yes" %}- `WORKER_CONCURRENCY`: tareas en paralelo del worker (por defecto `10`).
+{% endif %}Cambia `JWT_SECRET` y las credenciales de base de datos antes de desplegar.
 
 ## Estructura
 
@@ -54,6 +62,20 @@ pkg/               filtros, paginación, converters y criptografía
 {% if cookiecutter.use_db == "yes" %}migrations/        migraciones de Atlas
 {% endif %}tools/             generadores y utilidades
 ```
+
+## Arquitectura
+
+- Inyección de dependencias con `fx`: `cmd/http` construye configuración,
+  logger, clientes y servidor, y registra `Start`/`Shutdown` con `fx.Hook`.
+- Sin estado global: no hay singletons ni `configs.GetDB`; cada componente
+  recibe lo que necesita por parámetro.
+- Configuración portátil: `configs.Load` lee `env/<stage>.env` con una
+  instancia aislada de Viper y funciona desde cualquier directorio y en tests.
+- Apagado limpio: `SIGTERM` cierra el servidor HTTP por `Shutdown` y, si hay
+  worker, drena las tareas en curso.
+{% if cookiecutter.use_asynq == "yes" %}
+- `cmd/worker` arranca Asynq con `WORKER_CONCURRENCY` tareas en paralelo.
+{% endif %}
 
 ## Comandos
 
