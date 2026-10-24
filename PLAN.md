@@ -57,12 +57,12 @@ checkbox en GitHub, pero son legibles en crudo.
 | Fase | Pasos | Hechos | Bloqueados | Gate |
 |---|---:|---:|---:|---|
 | 0 | 49 | 49 | 0 | `make test-template` |
-| 1 | 7 | 0 | 0 | `go mod tidy -diff` + build reproducible |
+| 1 | 7 | 7 | 0 | `go mod tidy -diff` + build reproducible |
 | 2 | 20 | 0 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
 | 3 | 8 | 0 | 0 | sin globales ni `log.Fatal` en librerías |
 | 4 | 8 | 0 | 0 | CI completa sobre la matriz |
 | 5 | 8 | 0 | 0 | modo interactivo + `--no-input` |
-| **Total** | **100** | **49** | **0** | — |
+| **Total** | **100** | **56** | **0** | — |
 
 ### Dependencias entre fases
 
@@ -336,10 +336,12 @@ externos, pasa `golangci-lint` y `govulncheck`, y arranca con Postgres/Redis
 
 ### Checklist
 
-- [ ] **1.1** Subir `go` a 1.27 y la imagen base a `golang:1.27-alpine`
+- [x] **1.1** Subir `go` a 1.27 y la imagen base a `golang:1.27-alpine`
       (pinneada por digest). Verificar disponibilidad antes de fijar la
       versión; si no existe, usar la última estable y actualizar este plan.
-- [ ] **1.2** Actualizar dependencias verificando cada salto con
+  - **Ejecutado:** `go 1.27.3`, `golang:1.27-alpine@sha256:b8c9b82a…`,
+    `alpine:3.22.7@sha256:2e0b81d6…`, CI raíz y CI generada alineadas.
+- [x] **1.2** Actualizar dependencias verificando cada salto con
       `go list -m -u all` y `go get`; no fijar versiones a ciegas. Las
       versiones de referencia iniciales son:
   - `gin 1.10.0 → 1.12.0`
@@ -351,33 +353,61 @@ externos, pasa `golangci-lint` y `govulncheck`, y arranca con Postgres/Redis
   - `go-redis/v9 9.7.0 → 9.23.0`
   - `sentry-go 0.30.0 → 0.50.0`
   - `fx → 1.24.0`
-- [ ] **1.3** Ejecutar `go mod tidy` y eliminar las dependencias indirectas que
+  - Además: `cors 1.7.9`, `pprof 1.5.6`, `validator/v10 10.30.5`,
+    `gin-swagger 1.6.1`, `slog-multi 1.8.0`, `slog-sentry/v2 2.11.0`,
+    `urfave/cli/v2 2.27.7`, `x/crypto 0.58.0`, `decimal 1.6.0` y
+    `sentry-go/gin 0.50.0`.
+- [x] **1.3** Ejecutar `go mod tidy` y eliminar las dependencias indirectas que
       ya no se usen (drivers MySQL/SQLServer/SQLite si se separa Atlas).
-- [ ] **1.4** Resolver la contradicción de imagen final: `distroless/static` no
+  - **Ejecutado:** `go.sum` raíz y `tools/go.sum` regenerados desde el fixture
+    `full`; `go mod tidy -diff` limpio en ambos módulos.
+- [x] **1.4** Resolver la contradicción de imagen final: `distroless/static` no
       tiene shell, así que no puede ejecutar `entrypoint.sh`. Elegir una
       opción: mantener una base con shell, usar un binario Go de arranque, o
       mover las migraciones a un servicio/job aparte y dejar `CMD` apuntando al
       binario. Considerar `tini`/`dumb-init` como PID 1 si se mantiene un
       entrypoint.
-  - **Decisión:** base con shell, binario de arranque o migraciones como job
-    aparte; registrar la elegida antes de tocar el Dockerfile (1.5).
-- [ ] **1.5** Dockerfile multi-stage:
+  - **Decisión:** base con shell (`alpine:3.22.7` pinneada por digest) + `tini`
+    como PID 1 y `entrypoint.sh` con migración. Distroless se reevaluará en
+    2.17, cuando las migraciones pasen a un job separado.
+- [x] **1.5** Dockerfile multi-stage:
   - usuario no-root;
   - imagen final mínima y pinneada por digest;
   - `-trimpath -ldflags="-s -w"`;
   - `ARG TARGETARCH` en lugar de `GOARCH=amd64` fijo;
   - Atlas pinneado con checksum;
   - `HEALTHCHECK` y build multiarch con `buildx`.
-- [ ] **1.6** Separar `cmd/atlas_loader` en `tools/go.mod` para no arrastrar
+- [x] **1.6** Separar `cmd/atlas_loader` en `tools/go.mod` para no arrastrar
       drivers MySQL/SQLServer/SQLite y actualizar `atlas.hcl` en consecuencia
       (por ejemplo, `go -C tools run ./cmd/atlas_loader`). Añadir `go.work` si
       conviven ambos módulos.
-  - **Decisión:** usar `go.work` o invocar con `go -C tools`; registrar la
-    elegida.
-- [ ] **1.7** Verificar `go mod tidy -diff` y que el build sea reproducible.
+  - **Decisión:** módulo anidado `{{ cookiecutter.go_module }}/tools` con
+    `replace` al módulo raíz y `go -C tools`; sin `go.work`. El hook elimina
+    `tools/cmd`, `tools/go.mod` y `tools/go.sum` cuando `use_db=no`.
+- [x] **1.7** Verificar `go mod tidy -diff` y que el build sea reproducible.
 
 Criterio de aceptación: `go list -m -u all` sin actualizaciones relevantes,
 `go mod tidy -diff` limpio y build reproducible.
+
+#### Evidencia Fase 1
+
+- `make test-template` con `REQUIRE_GOVULNCHECK=1`: **50 pasados, 1 saltado**
+  (smoke de `compose` en `minimal`). `golangci-lint v2.15.0` limpio en los 8
+  fixtures y `govulncheck` sin vulnerabilidades explotables.
+- `go mod tidy -diff` limpio en el módulo raíz y en `tools` para el fixture
+  `full`; `go -C tools build ./...` y `go -C tools vet ./...` limpios.
+- Build reproducible: dos compilaciones de `cmd/http` con
+  `-trimpath -buildvcs=false -ldflags="-s -w"` producen el mismo SHA-256
+  (`06acd74a…`).
+- `go -C tools run ./cmd/atlas_loader` genera el esquema SQL de `users`.
+- `docker build` del fixture `full` correcto en `linux/amd64` (Atlas 1.3.5
+  verificado por checksum). El build `linux/arm64` no se pudo ejecutar en local
+  por falta de emulación/binfmt; queda cubierto por la CI multiarch de la
+  Fase 4.
+- Se corrigió `pkg/pagination/pagination.go:63` (`Statement.DB` → `Statement`)
+  para mantener `golangci-lint` en verde con `gorm 1.31.2`.
+- Actualizaciones pendientes en `go list -m -u all`: solo indirectas
+  transitivas; todas las dependencias directas están en su última versión.
 
 ## Fase 2 — Seguridad
 
