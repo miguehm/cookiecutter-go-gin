@@ -7,7 +7,7 @@ suelen hacer falta en un backend pequeño o mediano.
 ## Requisitos
 
 - [uv](https://docs.astral.sh/uv/) (incluye `uvx`).
-- Go 1.22 o superior.
+- Go 1.27 o superior.
 - Docker y Docker Compose para el arnés de pruebas y los servicios locales.
 - Opcional: Atlas, `golangci-lint`, `govulncheck`, `gosec`, `trivy` y
   `gitleaks`.
@@ -42,7 +42,7 @@ uvx --from "cookiecutter==2.7.1" cookiecutter --no-input \
 | `go_module` | Módulo Go explícito, por ejemplo `github.com/acme/miapp`. |
 | `license` | `MIT`, `Apache-2.0`, `BSD-3-Clause` o `proprietary`. |
 | `version` | Versión inicial del proyecto. |
-| `use_db` | Incluye GORM, Postgres, Atlas, `cmd/atlas_loader` y `migrations/`. |
+| `use_db` | Incluye GORM, Postgres, Atlas, `tools/cmd/atlas_loader` y `migrations/`. |
 | `use_redis` | Incluye el cliente de Redis. |
 | `use_asynq` | Incluye Asynq, Asynqmon y las tareas. |
 | `use_worker` | Incluye `cmd/worker`. Requiere `use_asynq=yes`. |
@@ -59,7 +59,7 @@ Los flags se definen con `yes`/`no` y se validan en
 cmd/http/          API HTTP
 cmd/worker/        worker de Asynq (si use_worker=yes)
 cmd/devcli/        utilidades de desarrollo (si use_db=yes)
-cmd/atlas_loader/  loader de esquema GORM para Atlas (si use_db=yes)
+tools/cmd/atlas_loader/  loader de esquema GORM para Atlas (si use_db=yes)
 configs/           configuración y clientes
 internal/          controladores, servicios, repositorios y middleware
 pkg/               filtros, paginación, converters y criptografía

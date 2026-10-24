@@ -92,19 +92,34 @@ def test_generated_project_builds(generated_projects, fixture):
     env = environment()
 
     run(["go", "mod", "download"], cwd=project, env=env)
+    if fixture == "full":
+        _assert_tidy_clean(project, env)
     run(["go", "mod", "tidy"], cwd=project, env=env)
+    _assert_tidy_clean(project, env)
+
+    run(["go", "build", "./..."], cwd=project, env=env)
+    run(["go", "vet", "./..."], cwd=project, env=env)
+    run(["go", "test", "./..."], cwd=project, env=env)
+
+    if generated_projects[fixture]["context"]["use_db"] == "yes":
+        tools = project / "tools"
+        run(["go", "mod", "download"], cwd=tools, env=env)
+        _assert_tidy_clean(tools, env)
+        run(["go", "mod", "tidy"], cwd=tools, env=env)
+        _assert_tidy_clean(tools, env)
+        run(["go", "build", "./..."], cwd=tools, env=env)
+        run(["go", "vet", "./..."], cwd=tools, env=env)
+
+
+def _assert_tidy_clean(project, env):
     tidy_diff = run(["go", "mod", "tidy", "-diff"], cwd=project, env=env, check=False)
     if tidy_diff.returncode != 0:
         if "flag provided but not defined" in tidy_diff.stderr:
             pytest.skip("go mod tidy -diff no está disponible en esta versión de Go")
         raise AssertionError(
-            "go mod tidy -diff encontró cambios:\n"
+            f"go mod tidy -diff encontró cambios en {project}:\n"
             f"stdout:\n{tidy_diff.stdout}\nstderr:\n{tidy_diff.stderr}"
         )
-
-    run(["go", "build", "./..."], cwd=project, env=env)
-    run(["go", "vet", "./..."], cwd=project, env=env)
-    run(["go", "test", "./..."], cwd=project, env=env)
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)
@@ -123,7 +138,8 @@ def test_generated_project_conditional_files(generated_projects, fixture):
     checks = {
         "configs/client_db.go": use_db,
         "cmd/devcli/main.go": use_db,
-        "cmd/atlas_loader/main.go": use_db,
+        "tools/cmd/atlas_loader/main.go": use_db,
+        "tools/go.mod": use_db,
         "atlas.hcl": use_db,
         "migrations/.gitkeep": use_db,
         "configs/client_redis.go": use_redis,

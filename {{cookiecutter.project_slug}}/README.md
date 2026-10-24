@@ -6,7 +6,7 @@ Proyecto generado con `cookiecutter-go-gin`.
 
 ## Requisitos
 
-- Go 1.22 o superior.
+- Go 1.27 o superior.
 {% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
 - Docker y Docker Compose (para Postgres/Redis).
 {% endif %}
@@ -47,7 +47,7 @@ Cambia `JWT_SECRET` y las credenciales de base de datos antes de desplegar.
 cmd/http/          API HTTP
 {% if cookiecutter.use_worker == "yes" and cookiecutter.use_asynq == "yes" %}cmd/worker/        worker de Asynq
 {% endif %}{% if cookiecutter.use_db == "yes" %}cmd/devcli/        utilidades de desarrollo (dropdb, fakedb)
-cmd/atlas_loader/  loader de esquema GORM para Atlas
+tools/cmd/atlas_loader/  loader de esquema GORM para Atlas (módulo tools)
 {% endif %}configs/           configuración y clientes
 internal/          controladores, servicios, repositorios y middleware
 pkg/               filtros, paginación, converters y criptografía
@@ -102,7 +102,7 @@ atlas migrate apply \
 ```
 {% else %}
 Este proyecto se generó sin base de datos; no incluye `migrations/` ni
-`cmd/atlas_loader`.
+`tools/cmd/atlas_loader`.
 {% endif %}
 
 ## Utilidades

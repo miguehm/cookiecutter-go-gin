@@ -60,7 +60,7 @@ func (p *Pagination) Request(request *http.Request) *Pagination {
 
 func (p *Pagination) Response(results interface{}) *Page {
 	var total int64
-	dbs := p.Query.Statement.DB.Session(&gorm.Session{NewDB: true})
+	dbs := p.Query.Statement.Session(&gorm.Session{NewDB: true})
 	query := dbs.Unscoped().Table("(?) AS s", p.Query)
 	if p.withCount {
 		query = query.Count(&total).Limit(p.RequestParams.Size).Offset((p.RequestParams.Page - 1) * p.RequestParams.Size)
