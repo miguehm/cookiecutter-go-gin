@@ -2,7 +2,6 @@ package configs
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -12,9 +11,10 @@ import (
 )
 
 var db *gorm.DB
+var dbInitErr error
 var onceInitDBClient sync.Once
 
-func InitDBClient() {
+func InitDBClient() error {
 	onceInitDBClient.Do(func() {
 		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 			Env.DBHost, Env.DBPort, Env.DBUser, Env.DBPass, Env.DBName, Env.DBSslMode)
@@ -28,24 +28,38 @@ func InitDBClient() {
 		})
 
 		if err != nil {
-			panic("failed to connect database")
+			dbInitErr = fmt.Errorf("failed to connect database: %w", err)
+			return
 		}
 
-		// Setup connection pool
 		sqlDB, err := db.DB()
 		if err != nil {
-			panic("failed to get database")
+			dbInitErr = fmt.Errorf("failed to get database: %w", err)
+			db = nil
+			return
 		}
 
 		sqlDB.SetMaxIdleConns(10)
 		sqlDB.SetMaxOpenConns(500)
 		sqlDB.SetConnMaxLifetime(time.Hour)
 	})
+	return dbInitErr
 }
 
-func GetDB() *gorm.DB {
-	if db == nil {
-		log.Fatal("database client not initialized")
+func GetDB() (*gorm.DB, error) {
+	if dbInitErr != nil {
+		return nil, dbInitErr
 	}
-	return db
+	if db == nil {
+		return nil, fmt.Errorf("database client not initialized")
+	}
+	return db, nil
+}
+
+func MustGetDB() *gorm.DB {
+	d, err := GetDB()
+	if err != nil {
+		panic(err)
+	}
+	return d
 }

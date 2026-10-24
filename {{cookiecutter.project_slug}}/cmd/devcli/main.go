@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	configs.Bootstrap()
+	configs.MustBootstrap()
 	defer configs.Shutdown()
 
 	app := &cli.App{
@@ -45,7 +45,10 @@ func main() {
 }
 
 func dropdb(cCtx *cli.Context) error {
-	db := configs.GetDB()
+	db, err := configs.GetDB()
+	if err != nil {
+		return err
+	}
 	tbs, err := db.Migrator().GetTables()
 
 	for _, table := range tbs {

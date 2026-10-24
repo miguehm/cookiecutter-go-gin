@@ -12,6 +12,15 @@ import (
 )
 
 func AddAsynqmonRoute(r *gin.Engine) {
+	if !configs.Env.EnableAsynqmon {
+		return
+	}
+	if configs.Env.BasicAuthUser == "" || configs.Env.BasicAuthPass == "" {
+		panic("asynqmon enabled but BASIC_AUTH_USER/BASIC_AUTH_PASS are empty")
+	}
+	if configs.Env.BasicAuthUser == "dev" && configs.Env.BasicAuthPass == "dev" {
+		panic("asynqmon enabled but BASIC_AUTH_USER/PASS must not use dev/dev defaults")
+	}
 	basicAuthMidd := gin.BasicAuth(gin.Accounts{
 		configs.Env.BasicAuthUser: configs.Env.BasicAuthPass,
 	})
@@ -37,7 +46,11 @@ func PublishTask[T any](taskType string, payload T, opts ...asynq.Option) error 
 	if err != nil {
 		return fmt.Errorf("could not create task: %w", err)
 	}
-	_, err = configs.GetAsynqClient().Enqueue(task, opts...)
+	client, err := configs.GetAsynqClient()
+	if err != nil {
+		return err
+	}
+	_, err = client.Enqueue(task, opts...)
 	if err != nil {
 		return fmt.Errorf("could not enqueue task: %w", err)
 	}

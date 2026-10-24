@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	configs.Bootstrap()
+	configs.MustBootstrap()
 	defer configs.Shutdown()
 
 	var tlsConfig *tls.Config

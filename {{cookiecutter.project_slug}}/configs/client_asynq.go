@@ -3,13 +3,13 @@ package configs
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/hibiken/asynq"
 )
 
 var asynqClient *asynq.Client
+var asynqInitErr error
 var onceInitAsynqClient sync.Once
 
 func GetAsynqRedisOpt() asynq.RedisClientOpt {
@@ -24,19 +24,25 @@ func GetAsynqRedisOpt() asynq.RedisClientOpt {
 		Password:  Env.RedisPass,
 		TLSConfig: tlsConfig,
 		DB:        Env.RedisTaskDB,
-		//PoolSize:  1000,
 	}
 }
 
-func InitAsynqClient() {
+func InitAsynqClient() error {
 	onceInitAsynqClient.Do(func() {
 		asynqClient = asynq.NewClient(GetAsynqRedisOpt())
+		if asynqClient == nil {
+			asynqInitErr = fmt.Errorf("asynq client not initialized")
+		}
 	})
+	return asynqInitErr
 }
 
-func GetAsynqClient() *asynq.Client {
-	if asynqClient == nil {
-		log.Fatal("asynq client not initialized")
+func GetAsynqClient() (*asynq.Client, error) {
+	if asynqInitErr != nil {
+		return nil, asynqInitErr
 	}
-	return asynqClient
+	if asynqClient == nil {
+		return nil, fmt.Errorf("asynq client not initialized")
+	}
+	return asynqClient, nil
 }

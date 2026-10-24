@@ -4,16 +4,16 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/redis/go-redis/v9"
 )
 
 var rdb *redis.Client
+var redisInitErr error
 var onceInitRedisClient sync.Once
 
-func InitRedisClient() {
+func InitRedisClient() error {
 	onceInitRedisClient.Do(func() {
 		var tlsConfig *tls.Config
 		if Env.RedisEnableSsl {
@@ -22,25 +22,29 @@ func InitRedisClient() {
 			}
 		}
 
-		rdb = redis.NewClient(&redis.Options{
+		client := redis.NewClient(&redis.Options{
 			Addr:      fmt.Sprintf("%s:%s", Env.RedisHost, Env.RedisPort),
 			Password:  Env.RedisPass,
 			DB:        Env.RedisDB,
 			TLSConfig: tlsConfig,
 		})
 
-		var ctx = context.Background()
-
-		// Ping Redis to check connection
-		if err := rdb.Ping(ctx).Err(); err != nil {
-			log.Fatalf("failed to connect redis: %v", err)
+		ctx := context.Background()
+		if err := client.Ping(ctx).Err(); err != nil {
+			redisInitErr = fmt.Errorf("failed to connect redis: %w", err)
+			return
 		}
+		rdb = client
 	})
+	return redisInitErr
 }
 
-func GetRedis() *redis.Client {
-	if rdb == nil {
-		log.Fatal("redis client not initialized")
+func GetRedis() (*redis.Client, error) {
+	if redisInitErr != nil {
+		return nil, redisInitErr
 	}
-	return rdb
+	if rdb == nil {
+		return nil, fmt.Errorf("redis client not initialized")
+	}
+	return rdb, nil
 }

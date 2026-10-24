@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	configs.Bootstrap()
+	configs.MustBootstrap()
 	defer configs.Shutdown()
 {% if cookiecutter.use_sentry == "yes" %}
 	defer sentry.Flush(2 * time.Second)

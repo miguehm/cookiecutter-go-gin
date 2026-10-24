@@ -17,7 +17,11 @@ type {{ model_camelcase }}Repository struct {
 
 func New{{ model }}Repository(db *gorm.DB) *{{ model_camelcase }}Repository {
 	if db == nil {
-		db = configs.GetDB()
+		var err error
+		db, err = configs.GetDB()
+		if err != nil {
+			panic(err)
+		}
 	}
 	return &{{ model_camelcase }}Repository{
 		repository[models.{{ model }}, uuid.UUID]{

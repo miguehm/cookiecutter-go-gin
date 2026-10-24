@@ -1,20 +1,50 @@
 package configs
 
 {% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
-import "fmt"
+import (
+	"fmt"
+	"log/slog"
+	"os"
+)
+{% else %}
+import (
+	"log/slog"
+	"os"
+)
 {% endif %}
 
-func Bootstrap() {
+func Bootstrap() error {
+	if err := LoadEnv(); err != nil {
+		return err
+	}
+	if err := Env.Validate(); err != nil {
+		return err
+	}
 	InitLogger()
 {% if cookiecutter.use_db == "yes" %}
-	InitDBClient()
+	if err := InitDBClient(); err != nil {
+		return err
+	}
 {% endif %}
 {% if cookiecutter.use_redis == "yes" %}
-	InitRedisClient()
+	if err := InitRedisClient(); err != nil {
+		return err
+	}
 {% endif %}
 {% if cookiecutter.use_asynq == "yes" %}
-	InitAsynqClient()
+	if err := InitAsynqClient(); err != nil {
+		return err
+	}
 {% endif %}
+	return nil
+}
+
+func MustBootstrap() {
+	if err := Bootstrap(); err != nil {
+		logger := GetLogger()
+		logger.Error("bootstrap failed", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 }
 
 func Shutdown() {
