@@ -26,13 +26,20 @@ func JwtAuth() gin.HandlerFunc {
 		}
 		tokenString := fields[1]
 
-		claims, err := auth.VerifyJwtToken(configs.Env.JwtSecret, tokenString)
+		opts := auth.JwtOptions{
+			Issuer:   configs.Env.JwtIssuer,
+			Audience: configs.Env.JwtAudience,
+		}
+		claims, err := auth.VerifyJwtToken(configs.Env.JwtSecret, tokenString, opts)
 		if err != nil {
 			responses.AbortWithAPIError(ctx, apierrors.ErrAccessTokenInvalid)
 			return
 		}
 
 		ctx.Set("userID", claims.UserID.String())
+		if claims.ID != "" {
+			ctx.Set("jti", claims.ID)
+		}
 
 		ctx.Next()
 	}
