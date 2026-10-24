@@ -1,0 +1,12 @@
+title = "gitleaks config for the cookiecutter template"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Valores de ejemplo en fixtures, archivos env y tests"
+paths = [
+  '''env/.*\.env$''',
+  '''tests/fixtures/.*''',
+  '''_test\.go$''',
+]

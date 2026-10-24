@@ -5,9 +5,23 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  GOVULNCHECK_VERSION: "v1.9.0"
+  GOSEC_VERSION: "v2.30.0"
+  GITLEAKS_VERSION: "v8.28.0"
+  TRIVY_VERSION: "v0.76.1"
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ci-test-{% raw %}${{ github.ref }}{% endraw %}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -21,9 +35,73 @@ jobs:
         with:
           name: coverage
           path: coverage.out
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ci-security-{% raw %}${{ github.ref }}{% endraw %}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go mod download
+      - name: Install security tools
+        run: |
+          set -eu
+          bin="$(go env GOPATH)/bin"
+          go install golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}
+          go install github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}
+          curl -sSfL -o /tmp/gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz"
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          install -m 0755 /tmp/gitleaks "${bin}/gitleaks"
+          curl -sSfL -o /tmp/trivy.tgz \
+            "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz"
+          tar -xzf /tmp/trivy.tgz -C /tmp trivy
+          install -m 0755 /tmp/trivy "${bin}/trivy"
+          echo "${bin}" >> "${GITHUB_PATH}"
+      - name: govulncheck
+        if: always()
+        run: govulncheck ./...
+      - name: gosec
+        if: always()
+        run: gosec -quiet -fmt sarif -out gosec.sarif ./...
+      - name: gitleaks
+        if: always()
+        run: >
+          gitleaks detect --source . --no-git --redact --config .gitleaks.toml
+          --report-format sarif --report-path gitleaks.sarif
+      - name: trivy secret
+        if: always()
+        run: >
+          trivy fs --scanners secret --exit-code 1
+          --format sarif --output trivy-secret.sarif .
+      - name: trivy vulnerabilities (informativo)
+        if: always()
+        run: >
+          trivy fs --scanners vuln --exit-code 0
+          --format sarif --output trivy-vuln.sarif .
+{% for report in ["gosec", "gitleaks", "trivy-secret", "trivy-vuln"] %}
+      - name: Publicar SARIF de {{ report }}
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: {{ report }}.sarif
+          category: {{ report }}
+{% endfor %}
+
 {% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
   integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ci-integration-{% raw %}${{ github.ref }}{% endraw %}
+      cancel-in-progress: true
 {% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
     services:
 {% endif %}

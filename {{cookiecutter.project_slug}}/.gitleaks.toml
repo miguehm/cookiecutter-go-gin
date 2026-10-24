@@ -1,0 +1,13 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Valores de ejemplo en tests, archivos env y workflows"
+paths = [
+  '''env/.*\.env$''',
+  '''_test\.go$''',
+  '''\.github/workflows/.*''',
+  '''compose\.yaml$''',
+]
