@@ -1,7 +1,6 @@
 package cryptography
 
 import (
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 
@@ -16,15 +15,9 @@ func HashPassword(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
 
-func HashSHA256(data []byte) []byte {
-	h := sha256.New()
-	h.Write(data)
-	return h.Sum(nil)
-}
-
-func HashMD5(data string) string {
-	h := md5.New()
-	h.Write([]byte(data))
-	hashInBytes := h.Sum(nil)
-	return hex.EncodeToString(hashInBytes)
+// HashSHA256 returns the hex encoded SHA-256 digest of data.
+// Use it only for non security related identifiers, never for passwords.
+func HashSHA256(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
