@@ -23,6 +23,7 @@ def fail(message):
 {% if cookiecutter.use_db == "no" %}
 for path in [
     "configs/client_db.go",
+    "cmd/migrate",
     "tools/cmd/atlas_loader",
     "tools/cmd",
     "tools/go.mod",

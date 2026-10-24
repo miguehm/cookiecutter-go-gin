@@ -19,6 +19,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 {% if cookiecutter.use_db == "yes" %}
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
         -trimpath -buildvcs=false -ldflags="-s -w" -o /build/devcli ./cmd/devcli
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+        -trimpath -buildvcs=false -ldflags="-s -w" -o /build/migrate ./cmd/migrate
 {% endif %}
 
 FROM alpine:3.22.7@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
@@ -63,3 +65,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
         CMD wget -qO- "http://127.0.0.1:${PORT:-8080}/healthz" > /dev/null || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--", "./entrypoint.sh"]
+CMD ["./http"]
