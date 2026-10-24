@@ -10,8 +10,6 @@ import (
 )
 
 func TestFilterGetQuery(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name      string
 		filter    Filter
@@ -59,13 +57,23 @@ func TestFilterGetQuery(t *testing.T) {
 			value:   "not-a-uuid",
 			wantErr: true,
 		},
+		{
+			name:    "invalid op",
+			filter:  Filter{Field: "id", Type: FTypeString, Op: "DROP TABLE"},
+			value:   "x",
+			wantErr: true,
+		},
+		{
+			name:    "invalid field",
+			filter:  Filter{Field: "id; DROP TABLE", Type: FTypeString, Op: "="},
+			value:   "x",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			where, param, err := tt.filter.GetQuery(tt.value)
 			if tt.wantErr {
 				if err == nil {
@@ -97,8 +105,6 @@ func TestFilterGetQuery(t *testing.T) {
 }
 
 func TestFilterBuilderBuildFilter(t *testing.T) {
-	t.Parallel()
-
 	query := url.Values{
 		"name":       {"alice"},
 		"age":        {"18"},
@@ -112,7 +118,10 @@ func TestFilterBuilderBuildFilter(t *testing.T) {
 		AddFilter(Filter{Param: "age", Field: "age", Type: FTypeInt, Op: "="}).
 		SetOrdering([]string{"name"})
 
-	wheres, params, ordering := b.BuildFilter()
+	wheres, params, ordering, err := b.BuildFilter()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if wheres != "name = ? and age = ?" {
 		t.Fatalf("wheres = %q", wheres)
@@ -127,8 +136,6 @@ func TestFilterBuilderBuildFilter(t *testing.T) {
 }
 
 func TestFilterBuilderRejectsUnknownOrdering(t *testing.T) {
-	t.Parallel()
-
 	query := url.Values{
 		"order":      {"password"},
 		"order_type": {"desc"},
@@ -138,8 +145,27 @@ func TestFilterBuilderRejectsUnknownOrdering(t *testing.T) {
 	b := FilterBuilder{req: req}
 	b.SetOrdering([]string{"name"})
 
-	_, _, ordering := b.BuildFilter()
-	if ordering != "" {
-		t.Fatalf("ordering = %q, want empty", ordering)
+	_, _, _, err := b.BuildFilter()
+	if err == nil {
+		t.Fatal("expected error for unknown ordering")
+	}
+}
+
+func TestFilterBuilderRejectsInvalidOrderType(t *testing.T) {
+	query := url.Values{
+		"order":      {"name"},
+		"order_type": {"random"},
+	}
+	req := &http.Request{URL: &url.URL{RawQuery: query.Encode()}}
+
+	b := FilterBuilder{req: req}
+	b.SetOrdering([]string{"name"})
+
+	_, _, ordering, err := b.BuildFilter()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ordering != "name asc" {
+		t.Fatalf("ordering = %q, want %q", ordering, "name asc")
 	}
 }

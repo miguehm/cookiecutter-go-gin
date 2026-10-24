@@ -7,28 +7,36 @@ import (
 )
 
 func TestPaginationRequest(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name     string
 		query    string
 		wantPage int
 		wantSize int
+		wantErr  bool
 	}{
 		{name: "defaults", query: "", wantPage: 1, wantSize: 50},
 		{name: "valid values", query: "page=2&size=20", wantPage: 2, wantSize: 20},
-		{name: "invalid page", query: "page=abc&size=20", wantPage: 1, wantSize: 20},
-		{name: "invalid size", query: "page=2&size=abc", wantPage: 2, wantSize: 50},
+		{name: "invalid page", query: "page=abc&size=20", wantErr: true},
+		{name: "invalid size", query: "page=2&size=abc", wantErr: true},
+		{name: "negative page", query: "page=0&size=20", wantErr: true},
+		{name: "zero size", query: "page=1&size=0", wantErr: true},
+		{name: "size too large", query: "page=1&size=100", wantErr: true},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			req := &http.Request{URL: &url.URL{RawQuery: tt.query}}
-			p := NewStandardPagination().Request(req)
-
+			p, err := NewStandardPagination().Request(req)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if p.RequestParams.Page != tt.wantPage {
 				t.Fatalf("page = %d, want %d", p.RequestParams.Page, tt.wantPage)
 			}
@@ -40,8 +48,6 @@ func TestPaginationRequest(t *testing.T) {
 }
 
 func TestNewStandardPaginationMaxSize(t *testing.T) {
-	t.Parallel()
-
 	p := NewStandardPagination()
 	if p.maxSize != 50 {
 		t.Fatalf("maxSize = %d, want 50", p.maxSize)

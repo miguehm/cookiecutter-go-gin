@@ -1,16 +1,25 @@
 package pagination
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"gorm.io/gorm"
 )
 
-func NewStandardPagination() *Pagination {
-	return &Pagination{
-		maxSize: 50,
+func NewPagination(maxSize int) *Pagination {
+	if maxSize <= 0 {
+		maxSize = 50
 	}
+	return &Pagination{
+		maxSize: maxSize,
+	}
+}
+
+func NewStandardPagination() *Pagination {
+	return NewPagination(50)
 }
 
 type Pagination struct {
@@ -40,37 +49,74 @@ func (p *Pagination) SetCount(count bool) *Pagination {
 	return p
 }
 
-func (p *Pagination) Request(request *http.Request) *Pagination {
+func (p *Pagination) Request(request *http.Request) (*Pagination, error) {
+	if request == nil || request.URL == nil {
+		return nil, errors.New("invalid request")
+	}
 	query := request.URL.Query()
 	requestParams := &RequestParams{}
-	if i, e := strconv.Atoi(query.Get("size")); nil == e {
-		requestParams.Size = i
-	} else {
+	sizeStr := query.Get("size")
+	if sizeStr == "" {
 		requestParams.Size = 50
+	} else {
+		i, e := strconv.Atoi(sizeStr)
+		if e != nil {
+			return nil, errors.New("invalid size")
+		}
+		if i <= 0 || i > p.maxSize {
+			return nil, fmt.Errorf("invalid size")
+		}
+		requestParams.Size = i
 	}
 
-	if i, e := strconv.Atoi(query.Get("page")); nil == e {
-		requestParams.Page = i
-	} else {
+	pageStr := query.Get("page")
+	if pageStr == "" {
 		requestParams.Page = 1
+	} else {
+		i, e := strconv.Atoi(pageStr)
+		if e != nil {
+			return nil, errors.New("invalid page")
+		}
+		if i < 1 {
+			return nil, errors.New("invalid page")
+		}
+		requestParams.Page = i
 	}
 	p.RequestParams = requestParams
-	return p
+	return p, nil
 }
 
-func (p *Pagination) Response(results interface{}) *Page {
+func (p *Pagination) Response(results interface{}) (*Page, error) {
+	if p == nil || p.Query == nil {
+		return nil, errors.New("query not set")
+	}
+	if p.RequestParams == nil {
+		p.RequestParams = &RequestParams{Size: 50, Page: 1}
+	}
+	if p.RequestParams.Size <= 0 || p.RequestParams.Size > p.maxSize || p.RequestParams.Page < 1 {
+		return nil, errors.New("invalid pagination parameters")
+	}
+
 	var total int64
 	dbs := p.Query.Statement.Session(&gorm.Session{NewDB: true})
-	query := dbs.Unscoped().Table("(?) AS s", p.Query)
+	q := dbs.Unscoped().Table("(?) AS s", p.Query)
 	if p.withCount {
-		query = query.Count(&total).Limit(p.RequestParams.Size).Offset((p.RequestParams.Page - 1) * p.RequestParams.Size)
+		if err := q.Count(&total).Error; err != nil {
+			return nil, err
+		}
+		q = q.Limit(p.RequestParams.Size).Offset((p.RequestParams.Page - 1) * p.RequestParams.Size)
+		if err := q.Find(results).Error; err != nil {
+			return nil, err
+		}
 	} else {
-		query = query.Limit(p.RequestParams.Size).Offset((p.RequestParams.Page - 1) * p.RequestParams.Size)
+		q = q.Limit(p.RequestParams.Size).Offset((p.RequestParams.Page - 1) * p.RequestParams.Size)
+		if err := q.Find(results).Error; err != nil {
+			return nil, err
+		}
 	}
-	query.Find(results)
 
 	return &Page{
 		Items: results,
 		Total: total,
-	}
+	}, nil
 }

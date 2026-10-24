@@ -1,8 +1,10 @@
 package gormfilter
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -10,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
-	"{{ cookiecutter.go_module }}/configs"
 )
 
 const (
@@ -18,6 +19,11 @@ const (
 	FTypeUuid    = "uuid"
 	FTypeDecimal = "decimal"
 	FTypeInt     = "int"
+)
+
+var (
+	allowedOps     = []string{"=", "<>", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE"}
+	identifierRe   = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$`)
 )
 
 type Filter struct {
@@ -28,13 +34,24 @@ type Filter struct {
 }
 
 func (f *Filter) GetQuery(value string) (string, interface{}, error) {
+	if f.Field == "" || !identifierRe.MatchString(f.Field) {
+		return "", nil, errors.New("invalid filter field")
+	}
+	if !slices.Contains(allowedOps, strings.ToUpper(f.Op)) {
+		return "", nil, errors.New("invalid filter operator")
+	}
+	op := strings.ToUpper(f.Op)
+	if op == "!=" {
+		op = "<>"
+	}
+
 	var where string
 	var params interface{}
 	switch f.Type {
 	case FTypeString:
 		params = value
 	case FTypeUuid:
-		v, err := uuid.FromBytes([]byte(value))
+		v, err := uuid.Parse(value)
 		if err != nil {
 			return "", nil, err
 		}
@@ -51,16 +68,20 @@ func (f *Filter) GetQuery(value string) (string, interface{}, error) {
 			return "", nil, err
 		}
 		params = v
+	default:
+		return "", nil, errors.New("invalid filter type")
 	}
 
-	where = fmt.Sprintf("%s %s ?", f.Field, f.Op)
+	// #nosec G201 -- field and operator validated against allowlists
+	where = fmt.Sprintf("%s %s ?", f.Field, op)
 	return where, params, nil
 }
 
 type FilterBuilder struct {
-	Filters  []Filter
-	req      *http.Request
-	Ordering []string
+	Filters       []Filter
+	req           *http.Request
+	Ordering      []string
+	AllowedFields []string
 
 	Query *gorm.DB
 }
@@ -75,6 +96,11 @@ func (b *FilterBuilder) SetOrdering(ordering []string) *FilterBuilder {
 	return b
 }
 
+func (b *FilterBuilder) SetAllowedFields(fields []string) *FilterBuilder {
+	b.AllowedFields = fields
+	return b
+}
+
 func (b *FilterBuilder) SetRequest(req *http.Request) *FilterBuilder {
 	b.req = req
 	return b
@@ -85,47 +111,71 @@ func (b *FilterBuilder) AddFilter(filter Filter) *FilterBuilder {
 	return b
 }
 
-func (b *FilterBuilder) BuildFilter() (string, []interface{}, string) {
-	logger := configs.GetLogger()
+func (b *FilterBuilder) BuildFilter() (string, []interface{}, string, error) {
 	var wheres []string
 	var params []interface{}
+	var errs []error
+	if b.req == nil || b.req.URL == nil {
+		return "", nil, "", nil
+	}
 	query := b.req.URL.Query()
 	for _, filter := range b.Filters {
 		valueParam := query.Get(filter.Param)
 		if valueParam == "" {
 			continue
 		}
+		if len(b.AllowedFields) > 0 && !slices.Contains(b.AllowedFields, filter.Field) && !slices.Contains(b.AllowedFields, filter.Param) {
+			errs = append(errs, fmt.Errorf("filter field not allowed: %s", filter.Field))
+			continue
+		}
 		w, p, err := filter.GetQuery(valueParam)
 		if err != nil {
-			logger.Error("failed to build filter", "param", filter.Param, "err", err)
-		} else {
-			wheres = append(wheres, w)
-			params = append(params, p)
+			errs = append(errs, err)
+			continue
 		}
+		wheres = append(wheres, w)
+		params = append(params, p)
 	}
 
 	ordering := ""
 
 	if len(b.Ordering) > 0 {
 		orderingParam := query.Get("order")
-		orderingType := query.Get("order_type")
+		orderingType := strings.ToLower(query.Get("order_type"))
 		if orderingParam != "" {
-			if slices.Contains(b.Ordering, orderingParam) {
+			if slices.Contains(b.Ordering, orderingParam) && identifierRe.MatchString(orderingParam) {
+				if orderingType != "asc" && orderingType != "desc" {
+					orderingType = "asc"
+				}
 				ordering = fmt.Sprintf("%s %s", orderingParam, orderingType)
+			} else {
+				errs = append(errs, errors.New("invalid ordering"))
 			}
 		}
+		if orderingType != "" && orderingParam == "" {
+			errs = append(errs, errors.New("order_type requires order"))
+		}
+	} else if query.Get("order") != "" || query.Get("order_type") != "" {
+		errs = append(errs, errors.New("invalid ordering"))
 	}
 
-	return strings.Join(wheres, " and "), params, ordering
+	return strings.Join(wheres, " and "), params, ordering, errors.Join(errs...)
 }
 
-func (b *FilterBuilder) GetFilterQuery() *gorm.DB {
-	wheres, params, ordering := b.BuildFilter()
+func (b *FilterBuilder) GetFilterQuery() (*gorm.DB, error) {
+	wheres, params, ordering, err := b.BuildFilter()
+	if err != nil {
+		return nil, err
+	}
+	q := b.Query
+	if q == nil {
+		return nil, errors.New("query not set")
+	}
 	if wheres != "" {
-		b.Query = b.Query.Where(wheres, params...)
+		q = q.Where(wheres, params...)
 	}
 	if ordering != "" {
-		b.Query = b.Query.Order(ordering)
+		q = q.Order(ordering)
 	}
-	return b.Query
+	return q, nil
 }
