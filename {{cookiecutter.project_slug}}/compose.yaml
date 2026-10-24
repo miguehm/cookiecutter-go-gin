@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: {{ cookiecutter.project_slug }}
     ports:
       - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dev -d {{ cookiecutter.project_slug }}"]
       interval: 2s
@@ -42,4 +44,7 @@ services:
       - postgres://dev:dev@postgres:5432/{{ cookiecutter.project_slug }}?sslmode=disable
       - --dir
       - file:///migrations
+
+volumes:
+  pgdata:
 {% endif %}
