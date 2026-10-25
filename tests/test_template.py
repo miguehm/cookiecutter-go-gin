@@ -13,7 +13,17 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
 COOKIECUTTER_VERSION = os.environ.get("COOKIECUTTER_VERSION", "2.7.1")
-FIXTURES = sorted(path.stem for path in FIXTURES_DIR.glob("*.yaml"))
+ALL_FIXTURES = sorted(path.stem for path in FIXTURES_DIR.glob("*.yaml"))
+
+# FIXTURES=minimal,full acota la matriz (la usa la CI para PR); sin valor se
+# generan los ocho fixtures. Un nombre desconocido es un error, no un salto.
+_selected = {name.strip() for name in os.environ.get("FIXTURES", "").split(",") if name.strip()}
+_unknown = _selected - set(ALL_FIXTURES)
+if _unknown:
+    raise AssertionError(
+        f"fixtures desconocidos: {sorted(_unknown)}; disponibles: {ALL_FIXTURES}"
+    )
+FIXTURES = [name for name in ALL_FIXTURES if name in _selected] if _selected else ALL_FIXTURES
 
 
 def run(cmd, *, cwd=None, env=None, check=True):
@@ -101,6 +111,7 @@ def test_generated_project_builds(generated_projects, fixture):
     run(["go", "build", "./..."], cwd=project, env=env)
     run(["go", "vet", "./..."], cwd=project, env=env)
     run(["go", "test", "./..."], cwd=project, env=env)
+    run(["go", "test", "-race", "./..."], cwd=project, env=env)
 
     if generated_projects[fixture]["context"]["use_db"] == "yes":
         tools = project / "tools"
@@ -268,6 +279,57 @@ def test_generated_project_lints(generated_projects, fixture):
         )
 
 
+def test_root_makefile_help():
+    """Fase 4.1: el Makefile raíz documenta sus targets y versiones fijadas."""
+    if shutil.which("make") is None:
+        pytest.skip("make no está instalado")
+
+    result = run(["make", "help"], cwd=ROOT)
+    for expected in ("test-template", "security", "Cookiecutter:", "Fixtures:"):
+        assert expected in result.stdout, f"make help no menciona {expected}"
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_makefile_targets(generated_projects, fixture):
+    """Fase 4.1/4.2: targets disponibles y DSN parametrizados por stage."""
+    if shutil.which("make") is None:
+        pytest.skip("make no está instalado")
+
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    use_db = context["use_db"] == "yes"
+    use_worker = context["use_worker"] == "yes" and context["use_asynq"] == "yes"
+    use_swagger = context["use_swagger"] == "yes"
+
+    targets = ["fmt", "vet", "lint", "build", "build-all", "run", "test", "test-unit", "test-integration", "coverage"]
+    if use_db:
+        targets += ["migrate", "dbdiff", "dbapply"]
+    if use_worker:
+        targets.append("worker")
+    if use_swagger:
+        targets.append("docs")
+
+    for target in targets:
+        result = run(["make", "-n", target], cwd=project, check=False)
+        assert result.returncode == 0, (
+            f"make -n {target} falló en {fixture}:\n{result.stdout}\n{result.stderr}"
+        )
+        assert result.stdout.strip(), f"make -n {target} no imprime nada en {fixture}"
+
+    if use_db:
+        # 4.2: STAGE cambia el env incluido y el DSN de los tests apunta a la
+        # base _test, nunca a la de desarrollo.
+        migrate_out = run(["make", "-n", "migrate", "STAGE=testing"], cwd=project).stdout
+        assert "STAGE=testing go run ./cmd/migrate" in migrate_out
+
+        integration_out = run(["make", "-n", "test-integration"], cwd=project).stdout
+        assert f"/{context['project_slug']}_test" in integration_out, integration_out
+        assert "dev:dev@127.0.0.1:5432" in integration_out, integration_out
+
+        dbdiff_out = run(["make", "-n", "dbdiff"], cwd=project).stdout
+        assert "--var dev_url=" in dbdiff_out, dbdiff_out
+
+
 @pytest.mark.parametrize(
     ("project_slug", "go_module", "use_worker", "use_asynq", "message"),
     [
@@ -348,6 +410,28 @@ def _docker_available(project):
     return result.returncode == 0
 
 
+def _integration_env(project):
+    """Entorno para `go test -tags=integration` contra el compose de la prueba.
+
+    Credenciales y host salen de env/testing.env; la base es la que define
+    compose.yaml (el slug del proyecto), porque las migraciones del smoke se
+    aplican ahí.
+    """
+    testing = _read_env_file(project / "env" / "testing.env")
+    user = testing["DB_USER"]
+    password = testing["DB_PASS"]
+    host = testing.get("DB_HOST", "127.0.0.1")
+    port = testing.get("DB_PORT", "5432")
+    sslmode = testing.get("DB_SSL_MODE", "disable")
+
+    env = os.environ.copy()
+    env["STAGE"] = "testing"
+    env["TEST_DATABASE_URL"] = (
+        f"postgres://{user}:{password}@{host}:{port}/{project.name}?sslmode={sslmode}"
+    )
+    return env
+
+
 def _post_json(url, payload, token=None):
     headers = {"Content-Type": "application/json"}
     if token:
@@ -367,6 +451,8 @@ def _get_json(url, token=None):
 
 
 def test_full_project_http_smoke(generated_projects):
+    if "full" not in generated_projects:
+        pytest.skip("FIXTURES no incluye el fixture full")
     project = generated_projects["full"]["path"]
 
     if not _docker_available(project):
@@ -389,6 +475,12 @@ def test_full_project_http_smoke(generated_projects):
         run(["docker", "compose", "up", "-d"], cwd=project)
         assert _wait_for_port(5432), "Postgres no volvió a abrir el puerto"
         assert _wait_for_port(6379), "Redis no volvió a abrir el puerto"
+
+        # 4.4: la estrategia de tests (0.4) también se ejecuta de verdad.
+        # Reutiliza la pila ya levantada y migrada; el paquete de repositorios
+        # crea y borra su propia tabla, así que no toca el flujo de la API.
+        integration_env = _integration_env(project)
+        run(["go", "test", "-tags=integration", "./..."], cwd=project, env=integration_env)
 
         run(["go", "build", "-o", "/tmp/cookiecutter-smoke-http", "./cmd/http"], cwd=project, env=env)
         server = subprocess.Popen(
@@ -458,6 +550,8 @@ def test_full_project_http_smoke(generated_projects):
 
 
 def test_generated_tasks_and_generators(generated_projects, tmp_path):
+    if "full" not in generated_projects:
+        pytest.skip("FIXTURES no incluye el fixture full")
     source = generated_projects["full"]["path"]
     project = tmp_path / "project"
     shutil.copytree(source, project)
@@ -551,6 +645,8 @@ def test_generated_security_hardening(generated_projects, fixture):
 
 @pytest.mark.parametrize("fixture", ["full"])
 def test_generated_project_gosec(generated_projects, fixture):
+    if fixture not in generated_projects:
+        pytest.skip("FIXTURES no incluye el fixture full")
     project = generated_projects[fixture]["path"]
     env = environment()
 
@@ -564,6 +660,8 @@ def test_generated_project_gosec(generated_projects, fixture):
 
 @pytest.mark.parametrize("fixture", ["full"])
 def test_generated_project_gitleaks(generated_projects, fixture):
+    if fixture not in generated_projects:
+        pytest.skip("FIXTURES no incluye el fixture full")
     project = generated_projects[fixture]["path"]
 
     if shutil.which("gitleaks") is None:
