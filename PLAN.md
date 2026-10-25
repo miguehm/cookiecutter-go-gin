@@ -60,9 +60,9 @@ checkbox en GitHub, pero son legibles en crudo.
 | 1 | 7 | 7 | 0 | `go mod tidy -diff` + build reproducible |
 | 2 | 20 | 20 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
 | 3 | 8 | 8 | 0 | sin globales ni `log.Fatal` en librerías |
-| 4 | 8 | 0 | 0 | CI completa sobre la matriz |
+| 4 | 8 | 8 | 0 | CI completa sobre la matriz |
 | 5 | 8 | 0 | 0 | modo interactivo + `--no-input` |
-| **Total** | **100** | **84** | **0** | — |
+| **Total** | **100** | **92** | **0** | — |
 
 ### Dependencias entre fases
 
@@ -659,15 +659,15 @@ en librerías y con apagado limpio.
 
 ### Checklist
 
-- [ ] **4.1** Limpiar Makefile: targets `lint`, `test`, `test-unit`,
+- [x] **4.1** Limpiar Makefile: targets `lint`, `test`, `test-unit`,
       `test-integration`, `coverage`, `build-all`, `migrate`, `worker` y
       `test-template`.
-- [ ] **4.2** Parametrizar `atlas.hcl` y los DSN del Makefile por entorno.
-- [ ] **4.3** Añadir `.golangci.yml` y arreglar los avisos.
-- [ ] **4.4** Verificar que los tests descritos en 0.4 están implementados y
+- [x] **4.2** Parametrizar `atlas.hcl` y los DSN del Makefile por entorno.
+- [x] **4.3** Añadir `.golangci.yml` y arreglar los avisos.
+- [x] **4.4** Verificar que los tests descritos en 0.4 están implementados y
       cubiertos (handler con `httptest`, repositorio con testcontainers o
       compose); no duplicar su definición.
-- [ ] **4.5** Ampliar `.github/workflows/ci.yml` del repositorio plantilla:
+- [x] **4.5** Ampliar `.github/workflows/ci.yml` del repositorio plantilla:
   - matriz de fixtures alineada con la Fase 0 (mínima y completa en PR; matriz
     completa en nightly);
   - `uvx --with pytest --with pyyaml --with pexpect pytest -q tests/`;
@@ -675,14 +675,64 @@ en librerías y con apagado limpio.
     `go mod tidy -diff`;
   - `golangci-lint`, `govulncheck`, `gosec` y `gitleaks`;
   - `docker build` y escaneo de la imagen del proyecto generado.
-- [ ] **4.6** Usar `astral-sh/setup-uv` y cachear `UV_CACHE_DIR` y
+- [x] **4.6** Usar `astral-sh/setup-uv` y cachear `UV_CACHE_DIR` y
       `GOMODCACHE`; fijar la versión de cookiecutter y de las herramientas.
-- [ ] **4.7** Añadir `concurrency`, `permissions` mínimos y `timeout` a los
+- [x] **4.7** Añadir `concurrency`, `permissions` mínimos y `timeout` a los
       workflows.
-- [ ] **4.8** No usar `pip install cookiecutter` en ningún workflow.
+- [x] **4.8** No usar `pip install cookiecutter` en ningún workflow.
 
 Criterio de aceptación: CI verde sobre la matriz de proyectos generados y
 `make test-template` funciona en limpio.
+
+#### Evidencia Fase 4
+
+- Gate: `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template` con la
+  matriz completa → **77 pasados, 1 saltado** (8:17 min); con
+  `FIXTURES=minimal,full` → **29 pasados, 1 saltado**. `make security` en verde
+  (gitleaks: *no leaks*; `trivy no disponible` en local, tolerado por el
+  target) y `git diff --check` sin incidencias.
+- **4.1**: el Makefile raíz expone `help` (con las versiones fijadas),
+  `test-template` y `security`; el Makefile generado cubre `fmt`, `vet`,
+  `lint`, `build`, `build-all`, `run`, `test`, `test-unit`,
+  `test-integration`, `coverage`, `migrate`, `dbdiff`, `dbapply` y `worker`.
+  Arnés: `test_root_makefile_help` (etiquetas reales del `make help`) y
+  `test_generated_makefile_targets` (con `make -n` por target,
+  `STAGE=testing go run ./cmd/migrate`, `/<slug>_test` en `test-integration` y
+  `--var dev_url=` en `dbdiff`).
+- **4.2**: el Makefile generado hace `-include env/$(STAGE).env` (por defecto
+  `dev`), con fallbacks `?=`, `TEST_DB_NAME ?= {{ slug }}_test`,
+  `TEST_DATABASE_URL` y `ATLAS_DEV_URL` (por defecto
+  `docker://postgres/16/dev?search_path=public`); `atlas.hcl:5` lee
+  `var "dev_url"` y `make dbdiff` pasa `--var dev_url=`. El README generado
+  documenta `make lint`/`build-all`/`migrate` y ya no lleva DSN hardcodeado en
+  «Migraciones».
+- **4.3**: `.golangci.yml` (estándar + `bodyclose`, `errorlint`, `gocritic`,
+  `misspell`, `nilerr`, `revive`, `rowserrcheck`, `sqlclosecheck`, `unparam`,
+  `whitespace`, `gosec`, `gofmt`/`goimports`, exclusiones para `_test.go` y
+  `tools/`) con `max-issues-per-linter/same-issues: 0` para no truncar la
+  salida. Los **123 avisos** iniciales (122 `revive` + 1 `gofmt`) quedan en 0:
+  comentarios de paquete y de todas las exportaciones, `_ context.Context` en
+  hooks y handlers sin contexto, `FTypeUuid → FTypeUUID` (con sus tests) y
+  `gofmt` en `converter_test.go` (sin `{{` de Jinja: se usa una variable
+  intermedia). Los **8 fixtures** pasan `gofmt -l` y `golangci-lint run` limpio.
+- **4.4**: `test_full_project_http_smoke` añade `_integration_env(project)`
+  (lee `env/testing.env`, usa `project.name` como base de datos) y ejecuta
+  `go test -tags=integration ./...` dentro del mismo `compose up`, reutilizando
+  las migraciones ya aplicadas.
+- **4.5**: ci.yml con `on: push/pull_request` (`FIXTURES=minimal,full`),
+  `schedule` (cron `17 3 * * *`, matriz de los 8) y `workflow_dispatch` con
+  input `fixtures`; paso «Seleccionar matriz de fixtures» vía `$GITHUB_ENV` y
+  job `image` que genera el fixture `full`, hace `docker build` y escanea con
+  `trivy image` en modo informativo (`--exit-code 0` + SARIF).
+- **4.6/4.7**: `astral-sh/setup-uv` con `enable-cache` y
+  `cache-dependency-glob`, `setup-go` con caché de módulos (sin
+  `actions/cache` duplicado), `permissions` mínimos a nivel workflow,
+  `concurrency` a nivel workflow (`ci-{event}-{ref}`), `timeout-minutes` por
+  job y tres subidas de SARIF (`gitleaks`, `trivy-secret`, `trivy-vuln`).
+  En el workflow generado, `concurrency` también es de workflow y ya no queda
+  ningún bloque de job-level.
+- **4.8**: `grep -rn "pip install cookiecutter"` sin resultados fuera de
+  `PLAN.md`; `.github/workflows/ci.yml` validado con PyYAML.
 
 ## Fase 5 — Plantilla
 
