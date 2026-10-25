@@ -14,6 +14,7 @@ type Publisher struct {
 	client *asynq.Client
 }
 
+// NewPublisher returns a Publisher that enqueues tasks with client.
 func NewPublisher(client *asynq.Client) *Publisher {
 	return &Publisher{client: client}
 }
@@ -33,6 +34,7 @@ func (p *Publisher) Publish(taskType string, payload any, opts ...asynq.Option) 
 	return nil
 }
 
+// DebugTask enqueues a demo task used to verify the worker is consuming.
 func (p *Publisher) DebugTask() error {
 	return p.Publish(
 		tasks.TypeDebugTask,
@@ -41,6 +43,7 @@ func (p *Publisher) DebugTask() error {
 	)
 }
 
+// SendEmail enqueues the welcome email delivery task.
 func (p *Publisher) SendEmail() error {
 	return p.Publish(
 		tasks.TypeEmailDelivery,

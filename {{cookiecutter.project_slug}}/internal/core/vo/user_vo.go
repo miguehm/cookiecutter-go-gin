@@ -1,3 +1,4 @@
+// Package vo defines the request and response value objects of the API.
 package vo
 
 import (
@@ -29,6 +30,7 @@ type UserVO struct {
 	Email     string    `json:"email"`
 }
 
+// NewUserVO projects a user model onto its public representation.
 func NewUserVO(user *models.User) UserVO {
 	return UserVO{
 		ID:        user.ID,

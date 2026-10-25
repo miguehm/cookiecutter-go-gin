@@ -1,3 +1,5 @@
+// Package asynctasks defines the Asynq task queue wiring: publishing helpers,
+// the dashboard route and the handlers under tasks.
 package asynctasks
 
 import (
@@ -35,6 +37,7 @@ func AddAsynqmonRoute(r *gin.Engine, cfg *configs.Config, logger *slog.Logger) {
 	r.Any(h.RootPath()+"/*a", basicAuthMidd, gin.WrapH(h))
 }
 
+// NewTask marshals data as the JSON payload of a task of the given type.
 func NewTask[T any](taskType string, data T) (*asynq.Task, error) {
 	payload, err := json.Marshal(data)
 	if err != nil {

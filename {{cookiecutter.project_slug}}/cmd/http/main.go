@@ -1,3 +1,4 @@
+// Command http runs the HTTP API server.
 package main
 
 import (
@@ -50,7 +51,7 @@ func main() {
 // returned by Serve shuts the application down with a non-zero exit code.
 func registerServer(lc fx.Lifecycle, shutdowner fx.Shutdowner, s *server.Server, logger *slog.Logger) {
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			if err := s.Start(); err != nil {
 				return err
 			}

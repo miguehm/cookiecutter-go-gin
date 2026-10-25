@@ -53,7 +53,7 @@ func TestFilterGetQuery(t *testing.T) {
 		},
 		{
 			name:    "invalid uuid",
-			filter:  Filter{Field: "id", Type: FTypeUuid, Op: "="},
+			filter:  Filter{Field: "id", Type: FTypeUUID, Op: "="},
 			value:   "not-a-uuid",
 			wantErr: true,
 		},

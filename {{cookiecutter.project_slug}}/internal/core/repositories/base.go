@@ -1,3 +1,5 @@
+// Package repositories defines the persistence contracts and their generic
+// GORM implementation.
 package repositories
 
 import (
@@ -5,6 +7,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// IRepository is the generic contract every concrete repository implements.
 type IRepository[T any, TK any] interface {
 	Create(entity *T) error
 	GetByPK(id TK) (*T, error)

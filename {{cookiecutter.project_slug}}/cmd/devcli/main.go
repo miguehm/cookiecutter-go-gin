@@ -1,3 +1,5 @@
+// Command devcli offers the local development utilities: reset and fake the
+// database, and enqueue a debug task.
 package main
 
 import (
@@ -61,7 +63,7 @@ func main() {
 	}
 }
 
-func (a *devCli) dropdb(cCtx *cli.Context) error {
+func (a *devCli) dropdb(_ *cli.Context) error {
 	db, err := configs.NewDB(a.cfg)
 	if err != nil {
 		return err
@@ -91,13 +93,13 @@ func (a *devCli) dropdb(cCtx *cli.Context) error {
 	return nil
 }
 
-func (a *devCli) fakedb(cCtx *cli.Context) error {
+func (a *devCli) fakedb(_ *cli.Context) error {
 	// Fake db here
 	return nil
 }
 
 {% if cookiecutter.use_asynq == "yes" %}
-func (a *devCli) debugtask(cCtx *cli.Context) error {
+func (a *devCli) debugtask(_ *cli.Context) error {
 	client := configs.NewAsynqClient(a.cfg)
 	defer func() {
 		if err := configs.CloseAsynqClient(client); err != nil {

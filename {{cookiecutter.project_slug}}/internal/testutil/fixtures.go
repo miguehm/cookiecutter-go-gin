@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// NewUser returns a valid user fixture with a generated ID.
 func NewUser() *models.User {
 	return &models.User{
 		ID:        uuid.New(),

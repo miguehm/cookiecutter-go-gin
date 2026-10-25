@@ -91,6 +91,8 @@ func fmtString(v any) string {
 	return ""
 }
 
+// RequestLogger logs one line per request with the request ID, status and
+// latency, redacting sensitive fields when detailed logging is enabled.
 func RequestLogger(logger *slog.Logger, cfg *configs.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()

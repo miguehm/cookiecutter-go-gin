@@ -1,3 +1,4 @@
+// Command worker runs the Asynq task consumer.
 package main
 
 import (
@@ -49,7 +50,7 @@ func newServeMux(logger *slog.Logger) *asynq.ServeMux {
 // shutdown, which is what makes SIGTERM a graceful stop.
 func runWorker(lc fx.Lifecycle, srv *asynq.Server, mux *asynq.ServeMux, cfg *configs.Config, logger *slog.Logger) {
 	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(_ context.Context) error {
 			logger.Info("starting asynq worker", "concurrency", cfg.WorkerConcurrency)
 			return srv.Start(mux)
 		},

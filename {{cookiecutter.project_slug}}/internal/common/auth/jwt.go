@@ -1,3 +1,4 @@
+// Package auth creates and verifies the JWTs used by the API.
 package auth
 
 import (
@@ -9,11 +10,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// Claims are the JWT claims of this API, carrying the user ID.
 type Claims struct {
 	jwt.RegisteredClaims
 	UserID uuid.UUID `json:"userId"`
 }
 
+// JwtOptions overrides the defaults used when generating or verifying a
+// token; zero values keep the default.
 type JwtOptions struct {
 	Issuer     string
 	Audience   string
@@ -21,6 +25,8 @@ type JwtOptions struct {
 	Leeway     time.Duration
 }
 
+// GenerateJwtToken signs an HS256 token for userID, applying opts on top of
+// the default issuer, audience, expiration and leeway.
 func GenerateJwtToken(secret string, userID uuid.UUID, opts ...JwtOptions) (string, error) {
 	o := JwtOptions{
 		Issuer:     "go-gin-template",
@@ -65,6 +71,8 @@ func GenerateJwtToken(secret string, userID uuid.UUID, opts ...JwtOptions) (stri
 	return tokenString, nil
 }
 
+// VerifyJwtToken parses tokenString, checking the signature, the issuer, the
+// audience, the expiration and the leeway, and returns its claims.
 func VerifyJwtToken(secret string, tokenString string, opts ...JwtOptions) (*Claims, error) {
 	o := JwtOptions{
 		Issuer:   "go-gin-template",

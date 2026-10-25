@@ -1,3 +1,5 @@
+// Package services holds the business logic, sitting between the controllers
+// and the repositories.
 package services
 
 import (
@@ -13,10 +15,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// UserService implements the user use cases on top of a user repository.
 type UserService struct {
 	userRepository repositories.IUserRepository
 }
 
+// NewUserService returns a UserService backed by userRepo.
 func NewUserService(userRepo repositories.IUserRepository) *UserService {
 	return &UserService{
 		userRepo,

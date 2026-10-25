@@ -41,6 +41,9 @@ func NewLogger(cfg *Config) (*slog.Logger, error) {
 		}
 		handlers = append(handlers, slogsentry.Option{Level: slog.LevelWarn}.NewSentryHandler())
 	}
+{% else %}
+	// Without the Sentry handler nothing reads the configuration here.
+	_ = cfg
 {% endif %}
 
 	return slog.New(slogmulti.Fanout(handlers...)), nil
@@ -56,7 +59,7 @@ func ProvideLogger(lc fx.Lifecycle, cfg *Config) (*slog.Logger, error) {
 	}
 	if cfg.SentryDSN != "" {
 		lc.Append(fx.Hook{
-			OnStop: func(ctx context.Context) error {
+			OnStop: func(_ context.Context) error {
 				sentry.Flush(2 * time.Second)
 				return nil
 			},

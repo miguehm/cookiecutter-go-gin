@@ -29,6 +29,8 @@ import (
 {% endif %}
 )
 
+// NewRouter assembles the Gin engine with every middleware, the health
+// endpoints and the API routes.
 func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness{% if cookiecutter.use_db == "yes" %}, userController *controllers.UserController{% endif %}) (*gin.Engine, error) {
 	gin.SetMode(cfg.GinMode)
 	router := gin.New()

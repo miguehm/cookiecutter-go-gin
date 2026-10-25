@@ -1,3 +1,4 @@
+// Package controllers exposes the HTTP handlers of the API.
 package controllers
 
 import (
@@ -14,11 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserController handles the user related endpoints.
 type UserController struct {
 	userService *services.UserService
 	cfg         *configs.Config
 }
 
+// NewUserController returns a controller bound to the user service.
 func NewUserController(userService *services.UserService, cfg *configs.Config) *UserController {
 	return &UserController{
 		userService: userService,
@@ -26,6 +29,7 @@ func NewUserController(userService *services.UserService, cfg *configs.Config) *
 	}
 }
 
+// CreateUser implements POST /signup.
 func (u *UserController) CreateUser(c *gin.Context) {
 	req := vo.CreateUserRequest{}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -41,6 +45,7 @@ func (u *UserController) CreateUser(c *gin.Context) {
 	responses.Created(c, vo.NewUserVO(user))
 }
 
+// Login implements POST /login and answers with a JWT.
 func (u *UserController) Login(c *gin.Context) {
 	req := vo.LoginRequest{}
 	if err := c.ShouldBindJSON(&req); err != nil {

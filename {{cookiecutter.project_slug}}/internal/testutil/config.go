@@ -1,3 +1,5 @@
+// Package testutil provides helpers shared by the unit tests: canned
+// configuration, Gin contexts, fixtures and in-memory repositories.
 package testutil
 
 import (

@@ -1,3 +1,4 @@
+// Package models defines the GORM entities persisted by the application.
 package models
 
 import (
@@ -7,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// User is the users table. The password hash and the soft delete marker are
+// never serialized to JSON.
 type User struct {
 	ID        uuid.UUID      `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"createdAt"`

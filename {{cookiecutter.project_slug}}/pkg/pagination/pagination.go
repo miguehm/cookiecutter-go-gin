@@ -1,3 +1,5 @@
+// Package pagination turns the "page" and "size" query parameters into
+// GORM limit/offset clauses and wraps the result in a [Page].
 package pagination
 
 import (
@@ -9,6 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// NewPagination returns a Pagination that accepts pages of at most maxSize
+// rows; maxSize values below one fall back to the default of 50.
 func NewPagination(maxSize int) *Pagination {
 	if maxSize <= 0 {
 		maxSize = 50
@@ -18,10 +22,13 @@ func NewPagination(maxSize int) *Pagination {
 	}
 }
 
+// NewStandardPagination returns a Pagination with the default page size of 50.
 func NewStandardPagination() *Pagination {
 	return NewPagination(50)
 }
 
+// Pagination applies limit/offset to a GORM query using the parameters parsed
+// from the request.
 type Pagination struct {
 	maxSize       int
 	Query         *gorm.DB
@@ -29,26 +36,32 @@ type Pagination struct {
 	withCount     bool
 }
 
+// Page is the paginated result returned to the client.
 type Page struct {
 	Items interface{}
 	Total int64
 }
 
+// RequestParams holds the validated "page" and "size" query parameters.
 type RequestParams struct {
 	Size int
 	Page int
 }
 
+// With stores the query that will be paginated.
 func (p *Pagination) With(query *gorm.DB) *Pagination {
 	p.Query = query
 	return p
 }
 
+// SetCount enables counting the total number of rows for the current filters.
 func (p *Pagination) SetCount(count bool) *Pagination {
 	p.withCount = count
 	return p
 }
 
+// Request parses and validates the "page" and "size" query parameters of the
+// given request, storing them on the pagination.
 func (p *Pagination) Request(request *http.Request) (*Pagination, error) {
 	if request == nil || request.URL == nil {
 		return nil, errors.New("invalid request")
@@ -86,6 +99,9 @@ func (p *Pagination) Request(request *http.Request) (*Pagination, error) {
 	return p, nil
 }
 
+// Response runs the stored query with limit/offset applied and fills results
+// with the current page, returning it together with the total row count when
+// counting is enabled.
 func (p *Pagination) Response(results interface{}) (*Page, error) {
 	if p == nil || p.Query == nil {
 		return nil, errors.New("query not set")

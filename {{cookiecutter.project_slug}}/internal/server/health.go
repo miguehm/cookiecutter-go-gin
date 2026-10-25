@@ -1,3 +1,5 @@
+// Package server wires the Gin router, the HTTP server and the health check
+// endpoints.
 package server
 
 import (
@@ -25,6 +27,8 @@ type Readiness struct {
 	checks map[string]CheckFunc
 }
 
+// NewReadiness returns a Readiness that pings the enabled dependencies
+// (database, Redis) before serving /readyz.
 func NewReadiness({% if cookiecutter.use_db == "yes" %}db *gorm.DB{% endif %}{% if cookiecutter.use_db == "yes" and (cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes") %}, {% endif %}{% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}rdb *redis.Client{% endif %}) *Readiness {
 	r := &Readiness{checks: map[string]CheckFunc{}}
 {% if cookiecutter.use_db == "yes" %}

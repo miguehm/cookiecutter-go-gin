@@ -1,3 +1,5 @@
+// Package middlewares holds the Gin middlewares used by the HTTP server:
+// error handling, request IDs, logging, rate limiting and security headers.
 package middlewares
 
 import (
@@ -16,6 +18,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// UcFirst upper-cases the first rune of str.
 func UcFirst(str string) string {
 	for i, v := range str {
 		return string(unicode.ToUpper(v)) + str[i+1:]
@@ -23,10 +26,13 @@ func UcFirst(str string) string {
 	return ""
 }
 
+// LcFirst lower-cases str, which is used to normalize error field names.
 func LcFirst(str string) string {
 	return strings.ToLower(str)
 }
 
+// Split converts a camelCase or snake_case identifier into human readable
+// words, e.g. "userName" becomes "User name".
 func Split(src string) string {
 	// don't split invalid utf8
 	if !utf8.ValidString(src) {
@@ -38,7 +44,7 @@ func Split(src string) string {
 	class := 0
 	// split into fields based on class of unicode character
 	for _, r := range src {
-		switch true {
+		switch {
 		case unicode.IsLower(r):
 			class = 1
 		case unicode.IsUpper(r):
@@ -80,6 +86,8 @@ func Split(src string) string {
 	return justString
 }
 
+// ValidationErrorToText turns a validator field error into a sentence for the
+// API response details.
 func ValidationErrorToText(e validator.FieldError) string {
 	word := Split(e.Field())
 
@@ -98,6 +106,8 @@ func ValidationErrorToText(e validator.FieldError) string {
 	return fmt.Sprintf("%s is not valid", word)
 }
 
+// ErrorHandler renders the errors collected by Gin as JSON responses and
+// logs everything that was not already written.
 func ErrorHandler(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
@@ -148,7 +158,6 @@ func ErrorHandler(logger *slog.Logger) gin.HandlerFunc {
 					}
 					logger.Error("error when call api "+c.Request.URL.Path+": "+errMessage, "request_id", reqID)
 				}
-
 			}
 			if !c.Writer.Written() {
 				c.JSON(http.StatusInternalServerError, gin.H{"code": "ErrUnexpected", "message": "whoops! something went wrong"})

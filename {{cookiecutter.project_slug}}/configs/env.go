@@ -1,3 +1,5 @@
+// Package configs loads, validates and exposes the application configuration
+// together with the client constructors that consume it.
 package configs
 
 import (
@@ -13,6 +15,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Config is the application configuration, populated from environment
+// variables (and the stage env file) through viper.
 type Config struct {
 	Stage       string `mapstructure:"STAGE"`
 	GinMode     string `mapstructure:"GIN_MODE"`
@@ -272,6 +276,8 @@ func splitOrigins(raw string) []string {
 	return out
 }
 
+// Validate checks that the required settings are present and well formed,
+// returning every problem found at once.
 func (c *Config) Validate() error {
 	var errs []string
 	if c.Stage == "" {

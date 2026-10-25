@@ -19,10 +19,12 @@ type FakeUserRepository struct {
 	CreateErr error
 }
 
+// NewFakeUserRepository returns an empty in-memory repository.
 func NewFakeUserRepository() *FakeUserRepository {
 	return &FakeUserRepository{Users: map[uuid.UUID]*models.User{}}
 }
 
+// Create stores user, returning CreateErr when set.
 func (f *FakeUserRepository) Create(user *models.User) error {
 	if f.CreateErr != nil {
 		return f.CreateErr
@@ -34,6 +36,7 @@ func (f *FakeUserRepository) Create(user *models.User) error {
 	return nil
 }
 
+// GetByPK returns the user with the given ID, or gorm.ErrRecordNotFound.
 func (f *FakeUserRepository) GetByPK(id uuid.UUID) (*models.User, error) {
 	user, ok := f.Users[id]
 	if !ok {
@@ -42,6 +45,8 @@ func (f *FakeUserRepository) GetByPK(id uuid.UUID) (*models.User, error) {
 	return user, nil
 }
 
+// GetOneBy supports the single "email = ?" lookup used by the tests and
+// rejects any other query.
 func (f *FakeUserRepository) GetOneBy(query any, args ...any) (*models.User, error) {
 	if fmt.Sprint(query) != "email = ?" || len(args) != 1 {
 		return nil, fmt.Errorf("unsupported query: %v %v", query, args)

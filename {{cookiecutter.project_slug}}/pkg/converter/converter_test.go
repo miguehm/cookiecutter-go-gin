@@ -26,7 +26,9 @@ func TestMustConvert(t *testing.T) {
 func TestMustConvertList(t *testing.T) {
 	t.Parallel()
 
-	from := []source{source{Name: "alice", Age: 30}, source{Name: "bob", Age: 40}}
+	alice := source{Name: "alice", Age: 30}
+	bob := source{Name: "bob", Age: 40}
+	from := []source{alice, bob}
 	got := MustConvertList[source, target](&from)
 	if got == nil || len(*got) != 2 {
 		t.Fatalf("unexpected list: %+v", got)
@@ -47,7 +49,8 @@ func TestMustConvertListNil(t *testing.T) {
 func TestMustConvertToListPointer(t *testing.T) {
 	t.Parallel()
 
-	from := []source{source{Name: "alice", Age: 30}}
+	alice := source{Name: "alice", Age: 30}
+	from := []source{alice}
 	got := MustConvertToListPointer[source, target](&from)
 	if got == nil || len(*got) != 1 {
 		t.Fatalf("unexpected list: %+v", got)

@@ -44,7 +44,7 @@ func CloseAsynqClient(client *asynq.Client) error {
 func ProvideAsynqClient(lc fx.Lifecycle, cfg *Config) *asynq.Client {
 	client := NewAsynqClient(cfg)
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(_ context.Context) error {
 			return CloseAsynqClient(client)
 		},
 	})

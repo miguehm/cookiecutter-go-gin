@@ -15,6 +15,8 @@ type ipLimiter struct {
 	lastSeen time.Time
 }
 
+// RateLimiter applies a per-IP token bucket rate limit and evicts idle
+// entries periodically.
 type RateLimiter struct {
 	mu       sync.Mutex
 	limiters map[string]*ipLimiter
@@ -24,6 +26,8 @@ type RateLimiter struct {
 	now      func() time.Time
 }
 
+// NewRateLimiter starts a limiter allowing rps requests per second with the
+// given burst; when enabled is false the middleware passes requests through.
 func NewRateLimiter(rps float64, burst int, enabled bool) *RateLimiter {
 	rl := &RateLimiter{
 		limiters: make(map[string]*ipLimiter),
@@ -64,6 +68,8 @@ func (rl *RateLimiter) getLimiter(ip string) *rate.Limiter {
 	return v.limiter
 }
 
+// Middleware returns a handler that answers 429 for client IPs over their
+// limit, skipping the paths given in skipPaths.
 func (rl *RateLimiter) Middleware(skipPaths ...string) gin.HandlerFunc {
 	skip := map[string]struct{}{}
 	for _, p := range skipPaths {

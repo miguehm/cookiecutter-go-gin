@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// BodyLimit caps the request body at maxBytes, answering 413 when exceeded.
 func BodyLimit(maxBytes int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Body == nil {
@@ -20,6 +21,8 @@ func BodyLimit(maxBytes int64) gin.HandlerFunc {
 	}
 }
 
+// SecurityHeaders sets the browser security headers; the stricter set is
+// relaxed on the documentation and monitoring pages so they can still render.
 func SecurityHeaders(cfg *configs.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path

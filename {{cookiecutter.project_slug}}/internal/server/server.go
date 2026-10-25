@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Server owns the listener and the http.Server behind it.
 type Server struct {
 	cfg        *configs.Config
 	logger     *slog.Logger
@@ -22,6 +23,8 @@ type Server struct {
 	listener   net.Listener
 }
 
+// NewServer returns a Server bound to the given configuration, logger and
+// router; call Start before Serve.
 func NewServer(cfg *configs.Config, logger *slog.Logger, router *gin.Engine) *Server {
 	return &Server{
 		cfg:    cfg,

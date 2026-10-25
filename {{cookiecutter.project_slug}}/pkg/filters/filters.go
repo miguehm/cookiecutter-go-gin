@@ -1,3 +1,6 @@
+// Package gormfilter builds SQL WHERE clauses and ORDER BY clauses from HTTP
+// query parameters, validating fields, operators and values against
+// allowlists so request input can never inject arbitrary SQL.
 package gormfilter
 
 import (
@@ -14,18 +17,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// Filter types accepted by [Filter.GetQuery].
 const (
-	FTypeString  = "string"
-	FTypeUuid    = "uuid"
+	// FTypeString compares the raw query value as text.
+	FTypeString = "string"
+	// FTypeUUID parses the query value as a UUID before comparing it.
+	FTypeUUID = "uuid"
+	// FTypeDecimal parses the query value as a [decimal.Decimal].
 	FTypeDecimal = "decimal"
-	FTypeInt     = "int"
+	// FTypeInt parses the query value as an int64.
+	FTypeInt = "int"
 )
 
 var (
-	allowedOps     = []string{"=", "<>", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE"}
-	identifierRe   = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$`)
+	allowedOps   = []string{"=", "<>", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE"}
+	identifierRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$`)
 )
 
+// Filter declares a single filter: the query parameter to read (Param), the
+// column to compare (Field), the value type to parse (Type) and the SQL
+// operator to apply (Op).
 type Filter struct {
 	Param string
 	Field string
@@ -33,6 +44,9 @@ type Filter struct {
 	Op    string
 }
 
+// GetQuery parses value according to f.Type and returns the WHERE fragment,
+// its bound parameter and an error if the field, operator or value is
+// invalid.
 func (f *Filter) GetQuery(value string) (string, interface{}, error) {
 	if f.Field == "" || !identifierRe.MatchString(f.Field) {
 		return "", nil, errors.New("invalid filter field")
@@ -50,7 +64,7 @@ func (f *Filter) GetQuery(value string) (string, interface{}, error) {
 	switch f.Type {
 	case FTypeString:
 		params = value
-	case FTypeUuid:
+	case FTypeUUID:
 		v, err := uuid.Parse(value)
 		if err != nil {
 			return "", nil, err
@@ -77,6 +91,9 @@ func (f *Filter) GetQuery(value string) (string, interface{}, error) {
 	return where, params, nil
 }
 
+// FilterBuilder assembles a WHERE clause and an ORDER BY clause from the
+// filters, ordering and request registered on it. The zero value is not
+// usable: call SetQuery and SetRequest first.
 type FilterBuilder struct {
 	Filters       []Filter
 	req           *http.Request
@@ -86,31 +103,40 @@ type FilterBuilder struct {
 	Query *gorm.DB
 }
 
+// SetQuery stores the GORM query that GetFilterQuery will extend.
 func (b *FilterBuilder) SetQuery(query *gorm.DB) *FilterBuilder {
 	b.Query = query
 	return b
 }
 
+// SetOrdering allows the values the "order" query parameter may take.
 func (b *FilterBuilder) SetOrdering(ordering []string) *FilterBuilder {
 	b.Ordering = ordering
 	return b
 }
 
+// SetAllowedFields restricts filters to the given field or parameter names.
+// When empty, every registered filter is allowed.
 func (b *FilterBuilder) SetAllowedFields(fields []string) *FilterBuilder {
 	b.AllowedFields = fields
 	return b
 }
 
+// SetRequest stores the request whose query parameters are read.
 func (b *FilterBuilder) SetRequest(req *http.Request) *FilterBuilder {
 	b.req = req
 	return b
 }
 
+// AddFilter registers a filter to apply when its parameter is present.
 func (b *FilterBuilder) AddFilter(filter Filter) *FilterBuilder {
 	b.Filters = append(b.Filters, filter)
 	return b
 }
 
+// BuildFilter reads the request query parameters and returns the joined WHERE
+// clause, its bound parameters, the ORDER BY clause and every error found
+// while validating the input.
 func (b *FilterBuilder) BuildFilter() (string, []interface{}, string, error) {
 	var wheres []string
 	var params []interface{}
@@ -162,6 +188,8 @@ func (b *FilterBuilder) BuildFilter() (string, []interface{}, string, error) {
 	return strings.Join(wheres, " and "), params, ordering, errors.Join(errs...)
 }
 
+// GetFilterQuery applies BuildFilter to the registered query and returns it
+// with the WHERE and ORDER BY clauses applied.
 func (b *FilterBuilder) GetFilterQuery() (*gorm.DB, error) {
 	wheres, params, ordering, err := b.BuildFilter()
 	if err != nil {

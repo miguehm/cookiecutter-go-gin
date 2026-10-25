@@ -56,7 +56,7 @@ func ProvideRedis(lc fx.Lifecycle, cfg *Config) (*redis.Client, error) {
 		return nil, err
 	}
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(_ context.Context) error {
 			return CloseRedis(client)
 		},
 	})

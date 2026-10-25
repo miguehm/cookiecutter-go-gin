@@ -61,7 +61,7 @@ func ProvideDB(lc fx.Lifecycle, cfg *Config) (*gorm.DB, error) {
 		return nil, err
 	}
 	lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(_ context.Context) error {
 			return CloseDB(db)
 		},
 	})
