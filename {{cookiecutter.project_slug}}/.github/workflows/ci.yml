@@ -9,6 +9,10 @@ permissions:
   contents: read
   security-events: write
 
+concurrency:
+  group: ci-{% raw %}${{ github.event_name }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
 env:
   GOVULNCHECK_VERSION: "v1.9.0"
   GOSEC_VERSION: "v2.30.0"
@@ -19,9 +23,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    concurrency:
-      group: ci-test-{% raw %}${{ github.ref }}{% endraw %}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -39,9 +40,6 @@ jobs:
   security:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    concurrency:
-      group: ci-security-{% raw %}${{ github.ref }}{% endraw %}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -99,12 +97,7 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    concurrency:
-      group: ci-integration-{% raw %}${{ github.ref }}{% endraw %}
-      cancel-in-progress: true
-{% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
     services:
-{% endif %}
 {% if cookiecutter.use_db == "yes" %}
       postgres:
         image: postgres:16-alpine

@@ -4,10 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Matriz completa de los ocho fixtures.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      fixtures:
+        description: "Lista de fixtures (vacío = los ocho)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
   security-events: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   COOKIECUTTER_VERSION: "2.7.1"
@@ -21,16 +34,25 @@ env:
   REQUIRE_SECURITY: "1"
 
 jobs:
+  # PR y push: matriz mínima (minimal + full). Nightly y dispatch: los ocho.
   template:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    concurrency:
-      group: template-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Seleccionar matriz de fixtures
+        run: |
+          set -eu
+          case "$GITHUB_EVENT_NAME" in
+            schedule)          echo "FIXTURES=" >> "$GITHUB_ENV" ;;
+            workflow_dispatch) echo "FIXTURES=$FIXTURES_INPUT" >> "$GITHUB_ENV" ;;
+            *)                 echo "FIXTURES=minimal,full" >> "$GITHUB_ENV" ;;
+          esac
+        env:
+          FIXTURES_INPUT: ${{ inputs.fixtures }}
 
       - uses: actions/setup-go@v5
         with:
@@ -40,15 +62,10 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-template-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-template-
+          cache-dependency-glob: |
+            Makefile
+            cookiecutter.json
+            tests/fixtures/*.yaml
 
       - name: Install tools
         run: |
@@ -111,3 +128,54 @@ jobs:
         with:
           sarif_file: trivy-vuln.sarif
           category: trivy-vuln
+
+  # 4.5: la imagen del proyecto generado, construida y escaneada en cada PR.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            Makefile
+            cookiecutter.json
+            tests/fixtures/*.yaml
+
+      - name: Generar el fixture full
+        run: |
+          set -eu
+          uvx --from "cookiecutter==${COOKIECUTTER_VERSION}" cookiecutter --no-input \
+            --config-file tests/fixtures/full.yaml \
+            --output-dir "$RUNNER_TEMP/gen" .
+          project="$(find "$RUNNER_TEMP/gen" -mindepth 1 -maxdepth 1 -type d)"
+          test -n "$project"
+          echo "PROJECT=$project" >> "$GITHUB_ENV"
+
+      - name: docker build
+        run: docker build -t cookiecutter-go-gin:ci "$PROJECT"
+
+      - name: Instalar trivy
+        run: |
+          set -eu
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL -o /tmp/trivy.tgz \
+            "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz"
+          tar -xzf /tmp/trivy.tgz -C /tmp trivy
+          install -m 0755 /tmp/trivy "$HOME/.local/bin/trivy"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: trivy image (informativo)
+        run: >
+          trivy image --scanners vuln --exit-code 0
+          --format sarif --output trivy-image.sarif cookiecutter-go-gin:ci
+
+      - name: Publicar SARIF de trivy image
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
