@@ -82,19 +82,28 @@ pkg/               filtros, paginación, converters y criptografía
 ```sh
 make fmt                  # go fmt
 make vet                  # go vet
+make lint                 # golangci-lint run ./...
 make build                # compila los binarios
+make build-all            # build reproducible de cmd/... (-trimpath -ldflags="-s -w")
 make run                  # arranca la API
 make test                 # alias de test-unit
 make test-unit            # tests sin servicios externos
 make test-integration     # tests con build tag integration
 make coverage             # cobertura de los tests unitarios
 {% if cookiecutter.use_worker == "yes" and cookiecutter.use_asynq == "yes" %}make worker               # arranca el worker
-{% endif %}{% if cookiecutter.use_db == "yes" %}make dbreset             # recrea la base de datos y aplica migraciones
+{% endif %}{% if cookiecutter.use_db == "yes" %}make migrate              # aplica migraciones (usa env/<stage>.env)
+make dbreset              # recrea la base de datos y aplica migraciones
 make dbdiff               # genera una migración con Atlas
-make dbapply              # aplica migraciones
+make dbapply              # alias de migrate
 {% endif %}{% if cookiecutter.use_swagger == "yes" %}make docs                 # regenera Swagger
 {% endif %}
 ```
+
+`STAGE` decide qué `env/<stage>.env` usan `run`, `worker`, `migrate` y
+`dbreset` (`make migrate STAGE=testing`) y qué credenciales inyecta el
+Makefile en `TEST_DATABASE_URL`. La dev-database de `make dbdiff` es
+independiente y se controla con `ATLAS_DEV_URL` (por defecto el Postgres que
+Atlas levanta en Docker).
 
 ## Tests
 
@@ -117,11 +126,13 @@ Los tests de integración se saltan si Docker no está disponible.
 
 {% if cookiecutter.use_db == "yes" %}
 ```sh
-atlas migrate diff --env gorm
-atlas migrate apply \
-  --url "postgres://dev:dev@127.0.0.1:5432/{{ cookiecutter.project_slug }}?sslmode=disable" \
-  --dir file://migrations
+make dbdiff                        # atlas migrate diff --env gorm
+make migrate                       # atlas migrate apply con env/<stage>.env
+make dbdiff ATLAS_DEV_URL="postgres://dev:dev@127.0.0.1:5432/atlas?sslmode=disable"
 ```
+
+`cmd/migrate` construye la URL con `net/url` a partir de `env/<stage>.env`;
+no hace falta escribir credenciales en el Makefile ni en la línea de comandos.
 {% else %}
 Este proyecto se generó sin base de datos; no incluye `migrations/` ni
 `tools/cmd/atlas_loader`.

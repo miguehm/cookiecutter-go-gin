@@ -1,6 +1,9 @@
+// Command migrate applies the Atlas migrations in migrations/ to the database
+// described by the configuration.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -10,7 +13,9 @@ import (
 	"{{ cookiecutter.go_module }}/configs"
 )
 
-func buildDatabaseURL(cfg *configs.Config) (string, error) {
+// buildDatabaseURL ensambla la URL de conexión a partir de la configuración.
+// net/url y net.JoinHostPort no fallan, por eso no devuelve error.
+func buildDatabaseURL(cfg *configs.Config) string {
 	u := &url.URL{
 		Scheme: "postgresql",
 		User:   url.UserPassword(cfg.DBUser, cfg.DBPass),
@@ -22,7 +27,7 @@ func buildDatabaseURL(cfg *configs.Config) (string, error) {
 		q.Set("sslmode", cfg.DBSslMode)
 	}
 	u.RawQuery = q.Encode()
-	return u.String(), nil
+	return u.String()
 }
 
 func main() {
@@ -31,11 +36,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	dsn, err := buildDatabaseURL(cfg)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	dsn := buildDatabaseURL(cfg)
 	args := []string{"migrate", "apply", "--url", dsn, "--dir", "file://migrations"}
 	// #nosec G204 -- argv fijo construido internamente, sin shell de por medio
 	cmd := exec.Command("atlas", args...)
@@ -43,7 +44,8 @@ func main() {
 	cmd.Stderr = os.Stderr
 	cmd.Env = os.Environ()
 	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
 		}
 		fmt.Fprintln(os.Stderr, err)

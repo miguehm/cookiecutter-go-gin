@@ -20,10 +20,7 @@ func dbConfig() configs.Config {
 func TestBuildDatabaseURL(t *testing.T) {
 	cfg := dbConfig()
 
-	got, err := buildDatabaseURL(&cfg)
-	if err != nil {
-		t.Fatalf("buildDatabaseURL returned error: %v", err)
-	}
+	got := buildDatabaseURL(&cfg)
 
 	want := "postgresql://app:p%40ss@db.example.com:5432/mydb?sslmode=require"
 	if got != want {
@@ -38,10 +35,7 @@ func TestBuildDatabaseURLWithoutSSLMode(t *testing.T) {
 	cfg.DBName = "app"
 	cfg.DBSslMode = ""
 
-	got, err := buildDatabaseURL(&cfg)
-	if err != nil {
-		t.Fatalf("buildDatabaseURL returned error: %v", err)
-	}
+	got := buildDatabaseURL(&cfg)
 
 	want := "postgresql://app:secret@127.0.0.1:5432/app"
 	if got != want {
@@ -56,10 +50,7 @@ func TestBuildDatabaseURLEscapesIPv6(t *testing.T) {
 	cfg.DBName = "app"
 	cfg.DBSslMode = "disable"
 
-	got, err := buildDatabaseURL(&cfg)
-	if err != nil {
-		t.Fatalf("buildDatabaseURL returned error: %v", err)
-	}
+	got := buildDatabaseURL(&cfg)
 
 	want := "postgresql://app:secret@[::1]:5432/app?sslmode=disable"
 	if got != want {
