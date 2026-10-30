@@ -61,8 +61,8 @@ checkbox en GitHub, pero son legibles en crudo.
 | 2 | 20 | 20 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
 | 3 | 8 | 8 | 0 | sin globales ni `log.Fatal` en librerías |
 | 4 | 8 | 8 | 0 | CI completa sobre la matriz |
-| 5 | 8 | 0 | 0 | modo interactivo + `--no-input` |
-| **Total** | **100** | **92** | **0** | — |
+| 5 | 8 | 8 | 0 | modo interactivo + `--no-input` |
+| **Total** | **100** | **100** | **0** | — |
 
 ### Dependencias entre fases
 
@@ -751,25 +751,80 @@ Criterio de aceptación: CI verde sobre la matriz de proyectos generados y
 
 ### Checklist
 
-- [ ] **5.1** Definir explícitamente qué archivos se eliminan con cada flag y
+- [x] **5.1** Definir explícitamente qué archivos se eliminan con cada flag y
       probarlo en la matriz de fixtures (los flags ya se definen en 0.2).
-- [ ] **5.2** Usar o eliminar la variable `version`.
-- [ ] **5.3** Corregir generadores `model.j2`, `repository.j2`, `service.j2` para
+- [x] **5.2** Usar o eliminar la variable `version`.
+- [x] **5.3** Corregir generadores `model.j2`, `repository.j2`, `service.j2` para
       que respeten el patrón y la DI existentes.
-- [ ] **5.4** Revisar `_copy_without_render` y el escapado de Jinja en
+- [x] **5.4** Revisar `_copy_without_render` y el escapado de Jinja en
       `env/_template.env`.
-- [ ] **5.5** Generar el `LICENSE` del proyecto según la licencia elegida.
-- [ ] **5.6** Actualizar README raíz con requisitos, features opcionales y flujo
+- [x] **5.5** Generar el `LICENSE` del proyecto según la licencia elegida.
+- [x] **5.6** Actualizar README raíz con requisitos, features opcionales y flujo
       de generación usando `uvx`.
-- [ ] **5.7** Añadir `renovate.json` para Go, Docker, GitHub Actions,
+- [x] **5.7** Añadir `renovate.json` para Go, Docker, GitHub Actions,
       herramientas de CI y la versión de cookiecutter, agrupando
       actualizaciones relacionadas.
-- [ ] **5.8** Probar el modo interactivo (smoke con `pexpect`, usando
+- [x] **5.8** Probar el modo interactivo (smoke con `pexpect`, usando
       `uvx --with pexpect`) y `--no-input` con todos los fixtures.
 
 Criterio de aceptación: `uvx cookiecutter` en modo interactivo y `--no-input`
 generan proyectos válidos con y sin features opcionales, y la matriz completa
 pasa `make test-template`.
+
+#### Evidencia Fase 5
+
+- **5.1**: `hooks/post_gen_project.py` concentra las eliminaciones en una tabla
+  `REMOVALS` con booleanos derivados de los flags. El arnés comprueba
+  `cmd/migrate`, `cmd/devcli`, `tools/go.mod`/`go.sum`, los scripts de
+  `tools/fake*`, `atlas.hcl`, `migrations/`, los clientes de Redis/Asynq y
+  `cmd/worker`; además valida los servicios de `compose.yaml`, los jobs y
+  servicios del workflow generado, la presencia/ausencia de targets
+  condicionales del Makefile y que ningún archivo operativo apunte a una ruta
+  eliminada.
+- **5.2**: se eliminó `version` de `cookiecutter.json` y de los ocho fixtures
+  (no se consumía en ningún artefacto); `test_cookiecutter_context_has_no_unused_version`
+  lo verifica.
+- **5.3**: `tasks.py` separa acrónimos (`HTTPClient` → `http_client` /
+  `httpClient`), valida que el modelo sea PascalCase, escribe con salto de
+  línea final y ejecuta `gofmt`. Las plantillas documentan los símbolos
+  exportados y el servicio expone `GetAll`. El arnés genera `HarnessModel` y
+  `HTTPClient`, comprueba nombres/comentarios, `gofmt -l` limpio y
+  `golangci-lint` tras la generación.
+- **5.4**: `_copy_without_render` queda limitado a `atlas.hcl`,
+  `tools/templates/*.j2` y `env/_template.env`; el arnés exige que esos
+  archivos se copien byte a byte, que `atlas.hcl` conserve su Jinja de Atlas,
+  que las plantillas conserven `{{ model }}` y que `env/_template.env` conserve
+  `{{ STAGE }}`. El escaneo de Jinja restante ignora binarios y cubre todos los
+  fixtures.
+- **5.5**: `LICENSE` se renderiza en cuatro ramas (MIT, Apache-2.0,
+  BSD-3-Clause y proprietary) con autor y año UTC. Los fixtures cubren las
+  cuatro licencias; los tests comprueban marcadores de cada texto, la ausencia
+  de la licencia original del repositorio y que el README generado mencione la
+  licencia elegida.
+- **5.6**: README raíz reescrito con requisitos, uso interactivo y
+  `--no-input`, tabla de variables, features opcionales, estructura, licencia,
+  Renovate y comandos. `make cookiecutter-version` imprime el pin; el README y
+  el del proyecto generado ya no duplican `cookiecutter==X.Y.Z` (test
+  `test_root_makefile_cookiecutter_version`).
+- **5.7**: `renovate.json` usa `config:recommended` y managers regex con
+  `managerFilePatterns` para actualizar Cookiecutter (PyPI), la versión de Go,
+  `golangci-lint`, `govulncheck`, `gosec`, `gitleaks`, `trivy` y las imágenes
+  del `compose.yaml` templado; los managers oficiales cubren `go.mod`,
+  `Dockerfile` y GitHub Actions. Los tests validan la estructura y que cada
+  regex reconoce las líneas reales del Makefile y la CI.
+- **5.8**: `test_interactive_generation` conduce la CLI real con `pexpect`
+  (incluidos los códigos ANSI del selector de licencia), elige Apache-2.0,
+  desactiva worker/Swagger/pprof/Sentry y compila, pasa `go vet` y
+  `go test`; `test_no_input_generation_without_config` genera con los valores
+  por defecto (`projectname`, módulo `github.com/yourname/projectname`, MIT y
+  todas las features) y compila, pasa `go vet` y `go test`.
+- **Gate**: `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template` con
+  la matriz completa → **149 pasados, 1 saltado** (7:50 min). El único salto es
+  `test_generated_compose_is_valid[minimal]`, porque ese fixture no genera
+  `compose.yaml`; las herramientas obligatorias (`govulncheck`, `gosec`,
+  `gitleaks`) se ejecutan, no se saltan.
+- **Seguridad**: `make security` → gitleaks *no leaks found* y trivy
+  secret/vulnerabilidad sin hallazgos.
 
 ## Notas
 
