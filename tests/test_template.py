@@ -265,11 +265,88 @@ def test_generated_readme_mentions_license(generated_projects, fixture):
     context = generated_projects[fixture]["context"]
     readme = (project / "README.md").read_text(encoding="utf-8")
 
-    assert "## Licencia" in readme
+    assert "## License" in readme
     if context["license"] == "proprietary":
-        assert "propietario" in readme.lower()
+        assert "proprietary" in readme.lower()
     else:
         assert context["license"] in readme
+
+
+def _env_keys(path):
+    keys = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        keys.append(line.split("=", 1)[0].strip())
+    return keys
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_readme_documents_usage(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    readme = (project / "README.md").read_text(encoding="utf-8")
+
+    for section in (
+        "## Quick start",
+        "## Configuration",
+        "### Environment variables",
+        "## API",
+        "## Docker",
+        "## Continuous integration",
+        "## Tests",
+        "## Deployment",
+        "## License",
+    ):
+        assert section in readme, f"{fixture}: falta la sección {section!r}"
+
+    assert "{{" not in readme and "{%" not in readme
+    assert "cookiecutter-version" not in readme, (
+        f"{fixture}: el README generado no debe referenciar targets de la plantilla"
+    )
+
+    if context["use_db"] == "yes":
+        assert "cmd/migrate" in readme
+        assert "make migrate" in readme
+        assert "### Adding a model and an endpoint" in readme
+    else:
+        assert "without a database" in readme.lower()
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_readme_documents_every_env_var(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    readme = (project / "README.md").read_text(encoding="utf-8")
+
+    for env_name in ("dev.env", "testing.env", "prod.env"):
+        for key in _env_keys(project / "env" / env_name):
+            assert f"`{key}`" in readme, f"{fixture}: {key} no está documentada"
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_env_example(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    example_path = project / ".env.example"
+    assert example_path.is_file(), f"{fixture}: falta .env.example"
+
+    example = example_path.read_text(encoding="utf-8")
+    assert "{{" not in example and "{%" not in example
+    assert "dev-secret-change-me" not in example
+    assert "change-me-in-dev" not in example
+
+    example_keys = set(_env_keys(example_path))
+    for env_name in ("dev.env", "testing.env", "prod.env"):
+        missing = set(_env_keys(project / "env" / env_name)) - example_keys
+        assert not missing, f"{fixture}: .env.example no cubre {sorted(missing)}"
+
+
+def test_root_readme_has_after_generating_section():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "## After generating" in readme
+    assert "README.md" in readme
+    assert "{{" not in readme and "{%" not in readme
 
 
 def test_cookiecutter_context_has_no_unused_version():
