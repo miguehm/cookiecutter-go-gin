@@ -101,4 +101,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Local agent tooling
+.opencode/
+.qoder/
+
 .DS_Store

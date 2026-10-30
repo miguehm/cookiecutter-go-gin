@@ -1,0 +1,175 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "Europe/Madrid",
+  "schedule": [
+    "before 06:00 on monday"
+  ],
+  "semanticCommits": "enabled",
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Pin de Cookiecutter en el Makefile y en la CI",
+      "matchStrings": [
+        "COOKIECUTTER_VERSION\\s*\\?=\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)",
+        "COOKIECUTTER_VERSION:\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "pypi",
+      "depNameTemplate": "cookiecutter",
+      "versioningTemplate": "pep440",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Versión de Go en la CI de la plantilla y en la generada",
+      "matchStrings": [
+        "GO_VERSION:\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "golang-version",
+      "depNameTemplate": "go",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "golangci-lint en el Makefile y en la CI",
+      "matchStrings": [
+        "GOLANGCI_LINT_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
+        "GOLANGCI_LINT_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "github.com/golangci/golangci-lint/v2",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "govulncheck en el Makefile y en la CI",
+      "matchStrings": [
+        "GOVULNCHECK_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
+        "GOVULNCHECK_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "golang.org/x/vuln",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "gosec en el Makefile y en la CI",
+      "matchStrings": [
+        "GOSEC_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
+        "GOSEC_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "github.com/securego/gosec/v2",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "gitleaks en el Makefile y en la CI",
+      "matchStrings": [
+        "GITLEAKS_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
+        "GITLEAKS_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "gitleaks/gitleaks",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "trivy en el Makefile y en la CI",
+      "matchStrings": [
+        "TRIVY_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
+        "TRIVY_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "aquasecurity/trivy",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^\\.github/workflows/ci\\.yml$/",
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/\\.github/workflows/ci\\.yml$/"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Imágenes del compose templado (postgres, redis y atlas)",
+      "matchStrings": [
+        "image:\\s+(?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      "datasourceTemplate": "docker",
+      "managerFilePatterns": [
+        "/^\\{\\{cookiecutter\\.project_slug\\}\\}/compose\\.yaml$/"
+      ]
+    }
+  ],
+  "docker-compose": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "matchManagers": [
+        "gomod"
+      ],
+      "groupName": "módulos Go",
+      "groupSlug": "go-modules"
+    },
+    {
+      "matchDatasources": [
+        "go",
+        "golang-version",
+        "github-releases",
+        "pypi"
+      ],
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "groupName": "herramientas de CI",
+      "groupSlug": "ci-tools"
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": "imágenes Docker",
+      "groupSlug": "docker-images"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions",
+      "groupSlug": "github-actions"
+    },
+    {
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
