@@ -1,18 +1,31 @@
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
 import time
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
+import pexpect
 import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE = ROOT / "{{cookiecutter.project_slug}}"
 FIXTURES_DIR = ROOT / "tests" / "fixtures"
-COOKIECUTTER_VERSION = os.environ.get("COOKIECUTTER_VERSION", "2.7.1")
+COPY_WITHOUT_RENDER = [
+    "atlas.hcl",
+    "tools/templates/*.j2",
+    "env/_template.env",
+]
+COOKIECUTTER_VERSION = os.environ.get("COOKIECUTTER_VERSION") or re.search(
+    r"^COOKIECUTTER_VERSION\s*\?=\s*(\S+)",
+    (ROOT / "Makefile").read_text(encoding="utf-8"),
+    re.MULTILINE,
+).group(1)
 ALL_FIXTURES = sorted(path.stem for path in FIXTURES_DIR.glob("*.yaml"))
 
 # FIXTURES=minimal,full acota la matriz (la usa la CI para PR); sin valor se
@@ -150,8 +163,13 @@ def test_generated_project_conditional_files(generated_projects, fixture):
     checks = {
         "configs/client_db.go": use_db,
         "cmd/devcli/main.go": use_db,
+        "cmd/migrate/main.go": use_db,
+        "cmd/migrate/main_test.go": use_db,
         "tools/cmd/atlas_loader/main.go": use_db,
         "tools/go.mod": use_db,
+        "tools/go.sum": use_db,
+        "tools/fake_db.py": use_db,
+        "tools/fake.yaml": use_db,
         "atlas.hcl": use_db,
         "migrations/.gitkeep": use_db,
         "migrations/20261024000000_users.sql": use_db,
@@ -163,6 +181,10 @@ def test_generated_project_conditional_files(generated_projects, fixture):
         "compose.yaml": use_db or use_redis or use_asynq,
         "env/testing.env": True,
         "internal/testutil/context.go": True,
+        "LICENSE": True,
+        "tools/templates/model.j2": True,
+        "tools/templates/repository.j2": True,
+        "tools/templates/service.j2": True,
     }
 
     for relative, expected in checks.items():
@@ -179,6 +201,137 @@ def test_generated_project_conditional_files(generated_projects, fixture):
     if use_db:
         assert "module " in (project / "go.mod").read_text(encoding="utf-8")
         assert "_test" in (project / "env/testing.env").read_text(encoding="utf-8")
+
+
+def test_copy_without_render_contract():
+    config = json.loads((ROOT / "cookiecutter.json").read_text(encoding="utf-8"))
+    assert config["_copy_without_render"] == COPY_WITHOUT_RENDER
+
+
+LICENSE_MARKERS = {
+    "MIT": ("MIT License", 'THE SOFTWARE IS PROVIDED "AS IS"'),
+    "Apache-2.0": (
+        "Apache License",
+        "Version 2.0, January 2004",
+        "http://www.apache.org/licenses/",
+    ),
+    "BSD-3-Clause": (
+        "BSD 3-Clause License",
+        "Neither the name of the copyright holder",
+    ),
+    "proprietary": ("All rights reserved", "proprietary"),
+}
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_license(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+
+    license_path = project / "LICENSE"
+    assert license_path.is_file(), f"{fixture} no generó LICENSE"
+
+    text = license_path.read_text(encoding="utf-8")
+    assert context["author"] in text
+    year = datetime.now(timezone.utc).year
+    assert str(year) in text or str(year - 1) in text, "LICENSE sin el año actual"
+    assert "{{" not in text and "{%" not in text
+    assert "Nguyễn Bá Cường" not in text
+    assert "2018" not in text
+
+    for marker in LICENSE_MARKERS[context["license"]]:
+        assert marker in text, f"{fixture} ({context['license']}) sin {marker!r}"
+
+    if context["license"] == "proprietary":
+        assert "MIT License" not in text
+        assert "Apache License" not in text
+        assert "BSD 3-Clause License" not in text
+
+
+def test_fixture_license_coverage():
+    if set(FIXTURES) != set(ALL_FIXTURES):
+        pytest.skip("la cobertura de las cuatro licencias requiere la matriz completa")
+
+    licenses = {
+        read_fixture(FIXTURES_DIR / f"{fixture}.yaml")["license"]
+        for fixture in FIXTURES
+    }
+    assert licenses == {"MIT", "Apache-2.0", "BSD-3-Clause", "proprietary"}
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_readme_mentions_license(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    readme = (project / "README.md").read_text(encoding="utf-8")
+
+    assert "## Licencia" in readme
+    if context["license"] == "proprietary":
+        assert "propietario" in readme.lower()
+    else:
+        assert context["license"] in readme
+
+
+def test_cookiecutter_context_has_no_unused_version():
+    config = json.loads((ROOT / "cookiecutter.json").read_text(encoding="utf-8"))
+    assert "version" not in config
+
+    for fixture in ALL_FIXTURES:
+        context = read_fixture(FIXTURES_DIR / f"{fixture}.yaml")
+        assert "version" not in context, f"{fixture} sigue definiendo version"
+
+
+def _raw_template_files(project):
+    files = [project / "env" / "_template.env"]
+    files.extend(sorted((project / "tools" / "templates").glob("*.j2")))
+    atlas = project / "atlas.hcl"
+    if atlas.exists():
+        files.append(atlas)
+    return files
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_copy_without_render_files_are_byte_identical(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+
+    relative_paths = ["env/_template.env"]
+    relative_paths.extend(
+        f"tools/templates/{path.name}" for path in (TEMPLATE / "tools" / "templates").glob("*.j2")
+    )
+    if context["use_db"] == "yes":
+        relative_paths.append("atlas.hcl")
+
+    for relative in relative_paths:
+        assert (project / relative).read_bytes() == (TEMPLATE / relative).read_bytes(), (
+            f"{relative} cambió al generar el proyecto"
+        )
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_project_has_no_unrendered_cookiecutter_jinja(generated_projects, fixture):
+    project = generated_projects[fixture]["path"]
+    raw = {path.relative_to(project).as_posix() for path in _raw_template_files(project)}
+
+    for path in sorted(project.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(project).as_posix()
+        if relative in raw:
+            continue
+        data = path.read_bytes()
+        if b"\x00" in data:
+            continue
+        content = data.decode("utf-8", errors="ignore")
+        assert "{{ cookiecutter." not in content, f"{relative} conserva Jinja sin renderizar"
+        assert "{%" not in content, f"{relative} conserva un bloque Jinja sin renderizar"
+
+    assert "{{ STAGE }}" in (project / "env" / "_template.env").read_text(encoding="utf-8")
+    for template in sorted((project / "tools" / "templates").glob("*.j2")):
+        assert "{{ model }}" in template.read_text(encoding="utf-8"), template
+    atlas = project / "atlas.hcl"
+    if atlas.exists():
+        assert "{{ sql ." in atlas.read_text(encoding="utf-8")
 
 
 ARCHITECTURE_BANNED = (
@@ -257,6 +410,151 @@ def test_generated_compose_is_valid(generated_projects, fixture):
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_compose_services(generated_projects, fixture):
+    """5.1: cada servicio de compose aparece solo si su feature está activa."""
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    use_db = context["use_db"] == "yes"
+    use_redis = context["use_redis"] == "yes"
+    use_asynq = context["use_asynq"] == "yes"
+
+    compose = project / "compose.yaml"
+    if not (use_db or use_redis or use_asynq):
+        assert not compose.exists(), "sin DB, Redis ni Asynq no debe generarse compose"
+        return
+
+    data = yaml.safe_load(compose.read_text(encoding="utf-8"))
+    services = data["services"]
+
+    assert ("postgres" in services) is use_db
+    assert ("atlas" in services) is use_db
+    assert ("redis" in services) is (use_redis or use_asynq)
+    assert ("pgdata" in (data.get("volumes") or {})) is use_db
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_ci_conditional_jobs(generated_projects, fixture):
+    """5.1: el job de integración y sus servicios siguen a los flags."""
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    use_db = context["use_db"] == "yes"
+    use_redis = context["use_redis"] == "yes"
+    use_asynq = context["use_asynq"] == "yes"
+    needs_services = use_db or use_redis or use_asynq
+
+    data = yaml.safe_load(
+        (project / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )
+    jobs = data["jobs"]
+    assert "test" in jobs and "security" in jobs
+
+    integration = jobs.get("integration")
+    if not needs_services:
+        assert integration is None, "sin servicios no debe existir el job integration"
+        return
+
+    assert integration is not None, "faltan servicios y no hay job integration"
+    services = integration.get("services") or {}
+    assert ("postgres" in services) is use_db
+    assert ("redis" in services) is (use_redis or use_asynq)
+
+    env = integration.get("env") or {}
+    assert ("TEST_DATABASE_URL" in env) is use_db
+    assert ("REDIS_HOST" in env) is (use_redis or use_asynq)
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_makefile_conditional_targets(generated_projects, fixture):
+    """5.1: los targets condicionales existen solo cuando aplica."""
+    if shutil.which("make") is None:
+        pytest.skip("make no está instalado")
+
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    expected = {
+        "migrate": context["use_db"] == "yes",
+        "dbreset": context["use_db"] == "yes",
+        "dbdiff": context["use_db"] == "yes",
+        "dbapply": context["use_db"] == "yes",
+        "worker": context["use_worker"] == "yes" and context["use_asynq"] == "yes",
+        "docs": context["use_swagger"] == "yes",
+    }
+
+    for target, enabled in expected.items():
+        result = run(["make", "-n", target], cwd=project, check=False)
+        if enabled:
+            assert result.returncode == 0, (
+                f"make -n {target} falló en {fixture}:\n{result.stdout}\n{result.stderr}"
+            )
+        else:
+            assert result.returncode != 0, (
+                f"{fixture} publica el target {target} sin la feature activa"
+            )
+
+
+_DANGLING_REFERENCE_FILES = (
+    "Makefile",
+    "Dockerfile",
+    ".air.toml",
+    "tasks.py",
+    "entrypoint.sh",
+)
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
+def test_generated_project_has_no_dangling_conditional_references(
+    generated_projects, fixture
+):
+    """5.1: ningún archivo operativo apunta a rutas eliminadas por el hook."""
+    project = generated_projects[fixture]["path"]
+    context = generated_projects[fixture]["context"]
+    use_db = context["use_db"] == "yes"
+    use_redis = context["use_redis"] == "yes"
+    use_asynq = context["use_asynq"] == "yes"
+    use_worker = context["use_worker"] == "yes" and use_asynq
+
+    removed = []
+    if not use_db:
+        removed += [
+            "cmd/migrate",
+            "cmd/devcli",
+            "tools/cmd",
+            "tools/go.mod",
+            "tools/fake_db.py",
+            "tools/fake.yaml",
+            "atlas.hcl",
+            "migrations/",
+        ]
+    if not use_asynq:
+        removed += ["internal/core/asynctasks", "configs/client_asynq"]
+    if not (use_redis or use_asynq):
+        removed.append("configs/client_redis")
+    if not use_worker:
+        removed.append("cmd/worker")
+
+    paths = [project / name for name in _DANGLING_REFERENCE_FILES]
+    paths.extend(sorted((project / ".github" / "workflows").glob("*.yml")))
+    compose = project / "compose.yaml"
+    if compose.exists():
+        paths.append(compose)
+
+    for path in paths:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for reference in removed:
+            assert reference not in text, (
+                f"{path.relative_to(project)} referencia {reference!r}, "
+                f"eliminado con los flags de {fixture}"
+            )
+
+    if use_db:
+        assert (project / "tools" / "templates" / "model.j2").exists()
+    else:
+        assert not (project / "tools" / "go.mod").exists()
+
+
+@pytest.mark.parametrize("fixture", FIXTURES)
 def test_generated_project_lints(generated_projects, fixture):
     project = generated_projects[fixture]["path"]
     env = environment()
@@ -285,8 +583,138 @@ def test_root_makefile_help():
         pytest.skip("make no está instalado")
 
     result = run(["make", "help"], cwd=ROOT)
-    for expected in ("test-template", "security", "Cookiecutter:", "Fixtures:"):
+    for expected in (
+        "test-template",
+        "security",
+        "cookiecutter-version",
+        "Cookiecutter:",
+        "Fixtures:",
+    ):
         assert expected in result.stdout, f"make help no menciona {expected}"
+
+
+def test_root_makefile_cookiecutter_version():
+    """5.6: el pin de Cookiecutter se consulta desde un único sitio."""
+    if shutil.which("make") is None:
+        pytest.skip("make no está instalado")
+
+    result = run(["make", "-s", "cookiecutter-version"], cwd=ROOT)
+    assert result.stdout.strip() == COOKIECUTTER_VERSION
+
+    for readme in (ROOT / "README.md", TEMPLATE / "README.md"):
+        text = readme.read_text(encoding="utf-8")
+        assert f"cookiecutter=={COOKIECUTTER_VERSION}" not in text, (
+            f"{readme} duplica el pin de Cookiecutter; usa `make -s cookiecutter-version`"
+        )
+
+
+def test_renovate_config():
+    """5.7: Renovate cubre Go, Docker, Actions, herramientas y Cookiecutter."""
+    config = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
+
+    assert config["$schema"].startswith("https://docs.renovatebot.com/")
+    assert "config:recommended" in config["extends"]
+    assert config["docker-compose"]["enabled"] is False
+    assert config["postUpdateOptions"] == ["gomodTidy"], (
+        "las actualizaciones Go deben regenerar go.sum"
+    )
+
+    managers = config["customManagers"]
+    assert managers, "faltan managers personalizados"
+
+    for manager in managers:
+        assert manager["customType"] == "regex"
+        assert manager.get("managerFilePatterns"), manager
+        assert manager.get("matchStrings"), manager
+
+    expected = {
+        "cookiecutter": "pypi",
+        "go": "golang-version",
+        "github.com/golangci/golangci-lint/v2": "go",
+        "golang.org/x/vuln": "go",
+        "github.com/securego/gosec/v2": "go",
+        "gitleaks/gitleaks": "github-releases",
+        "aquasecurity/trivy": "github-releases",
+    }
+    actual = {
+        manager["depNameTemplate"]: manager["datasourceTemplate"]
+        for manager in managers
+        if "depNameTemplate" in manager
+    }
+    assert actual == expected
+
+    docker = [m for m in managers if m["datasourceTemplate"] == "docker"]
+    assert len(docker) == 1, "falta el manager de las imágenes de compose"
+    assert any("(?<depName>" in pattern for pattern in docker[0]["matchStrings"])
+
+    grouped = {rule.get("groupName") for rule in config["packageRules"]}
+    assert {"módulos Go", "herramientas de CI", "imágenes Docker", "GitHub Actions"} <= grouped
+
+
+def _pin(text, variable):
+    match = re.search(rf"{variable}\s*(?:\?=|:)\s*\"?([^\s\"]+)", text)
+    assert match, f"no se encontró {variable}"
+    return match.group(1)
+
+
+def test_renovate_managers_match_the_pins():
+    """5.7: los regex de Renovate reconocen las líneas reales de Makefile y CI."""
+    config = json.loads((ROOT / "renovate.json").read_text(encoding="utf-8"))
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    template_ci = (TEMPLATE / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    by_dep = {
+        manager["depNameTemplate"]: manager
+        for manager in config["customManagers"]
+        if "depNameTemplate" in manager
+    }
+
+    for variable, dep in (
+        ("COOKIECUTTER_VERSION", "cookiecutter"),
+        ("GOLANGCI_LINT_VERSION", "github.com/golangci/golangci-lint/v2"),
+        ("GOVULNCHECK_VERSION", "golang.org/x/vuln"),
+        ("GOSEC_VERSION", "github.com/securego/gosec/v2"),
+        ("GITLEAKS_VERSION", "gitleaks/gitleaks"),
+        ("TRIVY_VERSION", "aquasecurity/trivy"),
+    ):
+        version = _pin(makefile, variable)
+        assert version == _pin(ci, variable), f"{variable} no coincide entre Makefile y CI"
+        assert any(
+            re.search(pattern.replace("(?<", "(?P<"), makefile)
+            for pattern in by_dep[dep]["matchStrings"]
+        ), f"Renovate no reconoce {variable} en el Makefile"
+        assert any(
+            re.search(pattern.replace("(?<", "(?P<"), ci)
+            for pattern in by_dep[dep]["matchStrings"]
+        ), f"Renovate no reconoce {variable} en la CI"
+
+        if variable in {
+            "GOVULNCHECK_VERSION",
+            "GOSEC_VERSION",
+            "GITLEAKS_VERSION",
+            "TRIVY_VERSION",
+        }:
+            assert _pin(template_ci, variable) == version, (
+                f"{variable} no coincide con la CI del proyecto generado"
+            )
+            assert any(
+                re.search(pattern.replace("(?<", "(?P<"), template_ci)
+                for pattern in by_dep[dep]["matchStrings"]
+            ), f"Renovate no reconoce {variable} en la CI generada"
+
+    go_version = _pin(ci, "GO_VERSION")
+    assert any(
+        re.search(pattern.replace("(?<", "(?P<"), f'GO_VERSION: "{go_version}"')
+        for pattern in by_dep["go"]["matchStrings"]
+    )
+
+    docker = next(m for m in config["customManagers"] if m["datasourceTemplate"] == "docker")
+    for image in ("postgres:16-alpine", "redis:7-alpine", "arigaio/atlas:1.3.5-alpine"):
+        assert any(
+            re.search(pattern.replace("(?<", "(?P<"), f"image: {image}")
+            for pattern in docker["matchStrings"]
+        ), f"Renovate no reconoce la imagen {image}"
 
 
 @pytest.mark.parametrize("fixture", FIXTURES)
@@ -354,7 +782,6 @@ def test_pre_gen_rejects_invalid_values(
         "email": "example@example.com",
         "go_module": go_module,
         "license": "MIT",
-        "version": "0.1.0",
         "use_db": "no",
         "use_redis": "no",
         "use_asynq": use_asynq,
@@ -575,9 +1002,165 @@ def test_generated_tasks_and_generators(generated_projects, tmp_path):
     ):
         assert (project / relative).exists(), f"no se generó {relative}"
 
+    # 5.3: acrónimos y comentarios de exportados.
+    run(
+        ["uvx", "--from", "invoke", "--with", "jinja2", "inv", "gen-model", "HTTPClient"],
+        cwd=project,
+    )
+
+    generated = {
+        "model": project / "internal/core/models/http_client.go",
+        "repository": project / "internal/core/repositories/http_client_repository.go",
+        "service": project / "internal/core/services/http_client_service.go",
+    }
+    model_source = generated["model"].read_text(encoding="utf-8")
+    assert "// HTTPClient is a persisted entity." in model_source
+    assert "type HTTPClient struct" in model_source
+
+    repository_source = generated["repository"].read_text(encoding="utf-8")
+    assert "// IHTTPClientRepository is the persistence contract" in repository_source
+    assert "func NewHTTPClientRepository(db *gorm.DB) IHTTPClientRepository" in repository_source
+    assert "type httpClientRepository struct" in repository_source
+
+    service_source = generated["service"].read_text(encoding="utf-8")
+    assert "// HTTPClientService implements" in service_source
+    assert "func NewHTTPClientService(repo repositories.IHTTPClientRepository)" in service_source
+    assert "// GetAll returns all HTTPClient records." in service_source
+    assert "func (s *HTTPClientService) GetAll()" in service_source
+
+    gofmt = shutil.which("gofmt")
+    if gofmt is not None:
+        for path in generated.values():
+            assert run([gofmt, "-l", path], cwd=project).stdout.strip() == ""
+
+    invalid = run(
+        ["uvx", "--from", "invoke", "--with", "jinja2", "inv", "gen-model", "http_client"],
+        cwd=project,
+        check=False,
+    )
+    assert invalid.returncode != 0, "gen-model debía rechazar un nombre no PascalCase"
+    assert "PascalCase" in invalid.stdout + invalid.stderr
+
     env = environment()
     run(["go", "mod", "tidy"], cwd=project, env=env)
     run(["go", "build", "./..."], cwd=project, env=env)
+    run(["go", "test", "./..."], cwd=project, env=env)
+    if shutil.which("golangci-lint") is not None:
+        run(["golangci-lint", "run", "./..."], cwd=project, env=env)
+
+
+def test_interactive_generation(tmp_path):
+    """5.8: la CLI interactiva pregunta cada variable y genera un proyecto válido."""
+    output_dir = tmp_path / "interactive"
+    output_dir.mkdir()
+
+    child = pexpect.spawn(
+        "uvx",
+        [
+            "--from",
+            f"cookiecutter=={COOKIECUTTER_VERSION}",
+            "cookiecutter",
+            "--output-dir",
+            str(output_dir),
+            str(ROOT),
+        ],
+        encoding="utf-8",
+        timeout=180,
+    )
+
+    try:
+        for prompt, answer in (
+            ("project_name", "Interactive Project"),
+            ("project_slug", ""),
+            ("description", "interactive fixture"),
+            ("author", "Example"),
+            ("email", "example@example.com"),
+            ("go_module", ""),
+        ):
+            child.expect(prompt)
+            child.sendline(answer)
+
+        child.expect("Select license")
+        child.expect("Choose from")
+        child.sendline("2")
+
+        for flag in ("use_db", "use_redis", "use_asynq"):
+            child.expect(flag)
+            child.sendline("")
+
+        for flag in ("use_worker", "use_swagger", "use_pprof", "use_sentry"):
+            child.expect(flag)
+            child.sendline("2")
+
+        child.expect(pexpect.EOF)
+    finally:
+        child.close()
+
+    transcript = child.before or ""
+    assert child.exitstatus == 0, (
+        f"cookiecutter interactivo terminó con {child.exitstatus}\n{transcript[-4000:]}"
+    )
+
+    project = output_dir / "interactiveproject"
+    assert project.is_dir(), f"no se generó {project}"
+
+    license_text = (project / "LICENSE").read_text(encoding="utf-8")
+    assert "Apache License" in license_text
+    assert "Example" in license_text
+
+    assert not (project / "cmd" / "worker").exists(), "use_worker=no no debe dejar cmd/worker"
+    router = (project / "internal" / "server" / "router.go").read_text(encoding="utf-8")
+    assert "ginSwagger" not in router
+    assert "pprof" not in router
+
+    readme = (project / "README.md").read_text(encoding="utf-8")
+    assert "{{" not in readme and "{%" not in readme
+
+    env = environment()
+    run(["go", "build", "./..."], cwd=project, env=env)
+    run(["go", "vet", "./..."], cwd=project, env=env)
+    run(["go", "test", "./..."], cwd=project, env=env)
+
+
+def test_no_input_generation_without_config(tmp_path):
+    """5.8: --no-input sin config usa los defaults de cookiecutter.json."""
+    output_dir = tmp_path / "defaults"
+    output_dir.mkdir()
+
+    run(
+        [
+            "uvx",
+            "--from",
+            f"cookiecutter=={COOKIECUTTER_VERSION}",
+            "cookiecutter",
+            "--no-input",
+            "--output-dir",
+            str(output_dir),
+            str(ROOT),
+        ]
+    )
+
+    project = output_dir / "projectname"
+    assert project.is_dir(), "los defaults deben generar projectname"
+
+    go_mod = (project / "go.mod").read_text(encoding="utf-8")
+    assert "module github.com/yourname/projectname" in go_mod
+
+    license_text = (project / "LICENSE").read_text(encoding="utf-8")
+    assert "MIT License" in license_text
+    assert "Your Name" in license_text
+
+    assert (project / "cmd" / "worker" / "main.go").exists()
+    assert (project / "compose.yaml").exists()
+    assert (project / "configs" / "client_db.go").exists()
+    assert (project / "configs" / "client_asynq.go").exists()
+
+    readme = (project / "README.md").read_text(encoding="utf-8")
+    assert "{{" not in readme and "{%" not in readme
+
+    env = environment()
+    run(["go", "build", "./..."], cwd=project, env=env)
+    run(["go", "vet", "./..."], cwd=project, env=env)
     run(["go", "test", "./..."], cwd=project, env=env)
 
 
