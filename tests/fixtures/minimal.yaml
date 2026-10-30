@@ -6,7 +6,6 @@ default_context:
   email: example@example.com
   go_module: github.com/example/minimal
   license: MIT
-  version: 0.1.0
   use_db: "no"
   use_redis: "no"
   use_asynq: "no"

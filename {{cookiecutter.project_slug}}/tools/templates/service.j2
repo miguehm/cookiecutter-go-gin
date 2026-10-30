@@ -5,16 +5,19 @@ import (
 	"{{ go_module }}/internal/core/repositories"
 )
 
+// {{ model }}Service implements the {{ model }} use cases on top of its repository.
 type {{ model }}Service struct {
 	{{ model_camelcase }}Repository repositories.I{{ model }}Repository
 }
 
+// New{{ model }}Service returns a {{ model }}Service backed by repo.
 func New{{ model }}Service(repo repositories.I{{ model }}Repository) *{{ model }}Service {
 	return &{{ model }}Service{
 		{{ model_camelcase }}Repository: repo,
 	}
 }
 
-func (s *{{ model }}Service) Get{{ model }}s() ([]*models.{{ model }}, error) {
+// GetAll returns all {{ model }} records.
+func (s *{{ model }}Service) GetAll() ([]*models.{{ model }}, error) {
 	return s.{{ model_camelcase }}Repository.GetAll()
 }

@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// {{ model }} is a persisted entity.
 type {{ model }} struct {
 	ID        uuid.UUID      `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"createdAt"`

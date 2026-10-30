@@ -20,42 +20,32 @@ def fail(message):
     sys.exit(1)
 
 
-{% if cookiecutter.use_db == "no" %}
-for path in [
-    "configs/client_db.go",
-    "cmd/migrate",
-    "tools/cmd/atlas_loader",
-    "tools/cmd",
-    "tools/go.mod",
-    "tools/go.sum",
-    "atlas.hcl",
-    "migrations",
-    "tools/fake_db.py",
-    "tools/fake.yaml",
-]:
-    remove(path)
-{% endif %}
+USE_DB = {{ "True" if cookiecutter.use_db == "yes" else "False" }}
+USE_REDIS = {{ "True" if cookiecutter.use_redis == "yes" else "False" }}
+USE_ASYNQ = {{ "True" if cookiecutter.use_asynq == "yes" else "False" }}
+USE_WORKER = {{ "True" if cookiecutter.use_worker == "yes" else "False" }}
 
-{% if cookiecutter.use_db == "no" %}
-remove("cmd/devcli")
-{% endif %}
+REMOVALS = [
+    ("configs/client_db.go", not USE_DB),
+    ("cmd/devcli", not USE_DB),
+    ("cmd/migrate", not USE_DB),
+    ("tools/cmd", not USE_DB),
+    ("tools/go.mod", not USE_DB),
+    ("tools/go.sum", not USE_DB),
+    ("atlas.hcl", not USE_DB),
+    ("migrations", not USE_DB),
+    ("tools/fake_db.py", not USE_DB),
+    ("tools/fake.yaml", not USE_DB),
+    ("configs/client_redis.go", not USE_REDIS and not USE_ASYNQ),
+    ("configs/client_asynq.go", not USE_ASYNQ),
+    ("internal/core/asynctasks", not USE_ASYNQ),
+    ("cmd/worker", not (USE_WORKER and USE_ASYNQ)),
+    ("compose.yaml", not (USE_DB or USE_REDIS or USE_ASYNQ)),
+]
 
-{% if cookiecutter.use_redis == "no" and cookiecutter.use_asynq == "no" %}
-remove("configs/client_redis.go")
-{% endif %}
-
-{% if cookiecutter.use_asynq == "no" %}
-for path in ["configs/client_asynq.go", "internal/core/asynctasks"]:
-    remove(path)
-{% endif %}
-
-{% if cookiecutter.use_worker == "no" or cookiecutter.use_asynq == "no" %}
-remove("cmd/worker")
-{% endif %}
-
-{% if cookiecutter.use_db == "no" and cookiecutter.use_redis == "no" and cookiecutter.use_asynq == "no" %}
-remove("compose.yaml")
-{% endif %}
+for path, should_remove in REMOVALS:
+    if should_remove:
+        remove(path)
 
 if not (PROJECT_ROOT / "go.mod").exists():
     fail("no se generó go.mod")
@@ -77,9 +67,8 @@ else:
 print(f"Proyecto generado en {PROJECT_ROOT}")
 print("Siguientes pasos:")
 print(f"  cd {PROJECT_SLUG}")
-{% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
-print("  docker compose up -d")
-{% endif %}
+if USE_DB or USE_REDIS or USE_ASYNQ:
+    print("  docker compose up -d")
 print("  go mod tidy")
 print("  go build ./...")
 print("  go test ./...")

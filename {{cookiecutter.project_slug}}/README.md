@@ -7,8 +7,12 @@ Proyecto generado con `cookiecutter-go-gin`.
 ## Requisitos
 
 - Go 1.27 o superior.
-{% if cookiecutter.use_db == "yes" or cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
-- Docker y Docker Compose (para Postgres/Redis).
+{% if cookiecutter.use_db == "yes" and (cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes") %}
+- Docker y Docker Compose (para Postgres y Redis).
+{% elif cookiecutter.use_db == "yes" %}
+- Docker y Docker Compose (para Postgres).
+{% elif cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}
+- Docker y Docker Compose (para Redis).
 {% endif %}
 {% if cookiecutter.use_db == "yes" %}
 - Atlas (solo si vas a crear o aplicar migraciones manualmente).
@@ -172,10 +176,23 @@ uvx --from invoke --with jinja2 inv format-env --stage <stage|all>
 - Sentry: errores y logs de warning.
 {% endif %}
 
+## Licencia
+
+{% if cookiecutter.license == "proprietary" %}
+Este proyecto es propietario y confidencial. Consulta el archivo `LICENSE`.
+{% else %}
+Este proyecto se distribuye bajo la licencia `{{ cookiecutter.license }}`. El
+texto completo está en `LICENSE`.
+{% endif %}
+
 ## Regenerar el proyecto
 
+Desde la raíz de la plantilla, `make -s cookiecutter-version` devuelve la
+versión fijada; sin `--no-input`, Cookiecutter pregunta cada variable:
+
 ```sh
-uvx --from "cookiecutter==2.7.1" cookiecutter \
+version="$(make -s cookiecutter-version)"
+uvx --from "cookiecutter==$version" cookiecutter \
   --no-input \
   --output-dir /tmp \
   /ruta/a/cookiecutter-go-gin

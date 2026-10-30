@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// I{{ model }}Repository is the persistence contract of the {{ model }} table.
 type I{{ model }}Repository interface {
 	IRepository[models.{{ model }}, uuid.UUID]
 }
@@ -15,6 +16,7 @@ type {{ model_camelcase }}Repository struct {
 	repository[models.{{ model }}, uuid.UUID]
 }
 
+// New{{ model }}Repository returns a {{ model }} repository bound to db.
 func New{{ model }}Repository(db *gorm.DB) I{{ model }}Repository {
 	return &{{ model_camelcase }}Repository{
 		repository[models.{{ model }}, uuid.UUID]{

@@ -8,7 +8,7 @@ TRIVY_VERSION ?= v0.76.1
 # Fixtures que genera el arnés; vacío significa los ocho del repositorio.
 FIXTURES ?=
 
-.PHONY: help test-template security
+.PHONY: help test-template security cookiecutter-version
 
 help:
 	@echo "Targets:"
@@ -16,6 +16,7 @@ help:
 	@echo "                 FIXTURES=minimal,full para acotar la matriz"
 	@echo "  security       Escanea el template con gitleaks y trivy (si están disponibles)"
 	@echo "                 gosec y govulncheck corren dentro de test-template"
+	@echo "  cookiecutter-version  Imprime la versión fijada de Cookiecutter"
 	@echo ""
 	@echo "Cookiecutter:    $(COOKIECUTTER_VERSION)"
 	@echo "golangci-lint:   $(GOLANGCI_LINT_VERSION)"
@@ -24,6 +25,9 @@ help:
 	@echo "gitleaks:        $(GITLEAKS_VERSION)"
 	@echo "trivy:           $(TRIVY_VERSION)"
 	@echo "Fixtures:        $(if $(FIXTURES),$(FIXTURES),todos)"
+
+cookiecutter-version:
+	@echo "$(COOKIECUTTER_VERSION)"
 
 test-template:
 	FIXTURES="$(FIXTURES)" \

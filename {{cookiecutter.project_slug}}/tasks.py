@@ -8,6 +8,8 @@ import contextlib
 import logging
 import os
 import re
+import shutil
+import subprocess
 
 import jinja2
 from invoke import task
@@ -40,13 +42,29 @@ def on_working_dir(dirname=None):
 
 # Utils
 # -------------------------------------------------------------------------
+MODEL_NAME = re.compile(r"^[A-Z][A-Za-z0-9]*$")
+
+
 def to_snake_case(s):
-    snake_case = re.sub(r'(?<!^)(?=[A-Z])', '_', s).lower()
-    return snake_case
+    # Separa acrónimos antes de las transiciones minúscula → mayúscula:
+    # HTTPServer → http_server y HarnessModel → harness_model.
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", s)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
+    return s.lower()
 
 
 def to_camel_case(s):
-    return s[0].lower() + s[1:] if s else s
+    words = to_snake_case(s).split("_")
+    return words[0] + "".join(word.capitalize() for word in words[1:])
+
+
+def validate_model_name(model):
+    if not MODEL_NAME.match(model):
+        logger.error(
+            "el nombre del modelo debe ser PascalCase y un identificador Go válido "
+            "(por ejemplo HarnessModel)"
+        )
+        raise SystemExit(1)
 
 
 def read_go_module():
@@ -59,11 +77,23 @@ def read_go_module():
 
 
 def template_context(model):
+    validate_model_name(model)
     return {
         'model': model,
         'model_camelcase': to_camel_case(model),
         'go_module': read_go_module(),
     }
+
+
+def gofmt(path):
+    gofmt_bin = shutil.which("gofmt")
+    if gofmt_bin is None:
+        logger.warning("gofmt no está instalado; %s no se ha formateado", path)
+        return
+
+    result = subprocess.run([gofmt_bin, "-w", path], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"gofmt falló en {path}: {result.stderr.strip()}")
 
 
 # Tasks
@@ -107,39 +137,42 @@ def format_env(c, stage="all"):
 
 @task
 def gen_repository(c, model):
-    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'))
+    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'), keep_trailing_newline=True)
     template = env.get_template('repository.j2')
     rendered_content = template.render(template_context(model))
 
     out_file = f'internal/core/repositories/{to_snake_case(model)}_repository.go'
     with open(out_file, 'w') as f:
         f.write(rendered_content)
+    gofmt(out_file)
 
     logger.info(f"generated: {out_file}")
 
 
 @task
 def gen_service(c, model):
-    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'))
+    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'), keep_trailing_newline=True)
     template = env.get_template('service.j2')
     rendered_content = template.render(template_context(model))
 
     out_file = f'internal/core/services/{to_snake_case(model)}_service.go'
     with open(out_file, 'w') as f:
         f.write(rendered_content)
+    gofmt(out_file)
 
     logger.info(f"generated: {out_file}")
 
 
 @task
 def gen_model(c, model):
-    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'))
+    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'), keep_trailing_newline=True)
     template = env.get_template('model.j2')
     rendered_content = template.render(template_context(model))
 
     out_file = f'internal/core/models/{to_snake_case(model)}.go'
     with open(out_file, 'w') as f:
         f.write(rendered_content)
+    gofmt(out_file)
 
     logger.info(f"generated: {out_file}")
 

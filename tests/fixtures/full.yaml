@@ -5,8 +5,7 @@ default_context:
   author: Example
   email: example@example.com
   go_module: github.com/example/fullproject
-  license: MIT
-  version: 0.1.0
+  license: Apache-2.0
   use_db: "yes"
   use_redis: "yes"
   use_asynq: "yes"

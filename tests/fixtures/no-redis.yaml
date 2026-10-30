@@ -5,8 +5,7 @@ default_context:
   author: Example
   email: example@example.com
   go_module: github.com/example/noredis
-  license: MIT
-  version: 0.1.0
+  license: proprietary
   use_db: "yes"
   use_redis: "no"
   use_asynq: "yes"
