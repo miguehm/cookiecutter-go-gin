@@ -8,12 +8,18 @@ import (
 	"os"
 
 	"{{ cookiecutter.go_module }}/configs"
+	"{{ cookiecutter.go_module }}/internal/core/models"
+	"{{ cookiecutter.go_module }}/pkg/cryptography"
 {% if cookiecutter.use_asynq == "yes" %}
 	"{{ cookiecutter.go_module }}/internal/core/asynctasks"
 {% endif %}
 
+	"github.com/google/uuid"
 	"github.com/urfave/cli/v2"
 )
+
+// demoPassword is the password given to every user seeded by `fakedb`.
+const demoPassword = "demo-password-change-me"
 
 // devCli keeps the loaded configuration and logger instead of reading them
 // from package level globals.
@@ -94,7 +100,41 @@ func (a *devCli) dropdb(_ *cli.Context) error {
 }
 
 func (a *devCli) fakedb(_ *cli.Context) error {
-	// Fake db here
+	db, err := configs.NewDB(a.cfg)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := configs.CloseDB(db); err != nil {
+			a.logger.Error("failed to close database connection", "err", err)
+		}
+	}()
+
+	hashed, err := cryptography.HashPassword(demoPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash the demo password: %w", err)
+	}
+
+	users := []models.User{
+		{ID: uuid.New(), Firstname: "Ada", Lastname: "Lovelace", Email: "ada@example.com", Password: string(hashed)},
+		{ID: uuid.New(), Firstname: "Alan", Lastname: "Turing", Email: "alan@example.com", Password: string(hashed)},
+		{ID: uuid.New(), Firstname: "Grace", Lastname: "Hopper", Email: "grace@example.com", Password: string(hashed)},
+	}
+	for _, user := range users {
+		var existing int64
+		if err := db.Model(&models.User{}).Where("email = ?", user.Email).Count(&existing).Error; err != nil {
+			return fmt.Errorf("failed to look up user %s: %w", user.Email, err)
+		}
+		if existing > 0 {
+			a.logger.Info("user already exists, skipped", "email", user.Email)
+			continue
+		}
+		if err := db.Create(&user).Error; err != nil {
+			return fmt.Errorf("failed to create user %s: %w", user.Email, err)
+		}
+		a.logger.Info("created user", "email", user.Email)
+	}
+	a.logger.Info("log in with the seeded users using password " + demoPassword)
 	return nil
 }
 

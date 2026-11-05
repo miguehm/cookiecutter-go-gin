@@ -18,12 +18,12 @@ type ResponseOK struct {
 }
 
 // ResponseOKWithPagination is the envelope of a successful paginated
-// response.
+// response. Total is the number of items available across all the pages.
 type ResponseOKWithPagination struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
-	// Total   int64       `json:"total"` // TODO: refactor it
-	Data interface{} `json:"data"`
+	Total   int64  `json:"total"`
+	Data    any    `json:"data"`
 }
 
 // Ok answers 200 with data.
@@ -49,8 +49,8 @@ func OkWithPagination(c *gin.Context, page *pagination.Page) {
 	c.JSON(http.StatusOK, ResponseOKWithPagination{
 		Code:    "Success",
 		Message: "Success",
+		Total:   page.Total,
 		Data:    page.Items,
-		//Total:   page.Total,
 	})
 }
 

@@ -261,7 +261,10 @@ func (c *Config) ApplyDefaults() {
 	}
 }
 
-func splitOrigins(raw string) []string {
+// SplitList splits a comma-separated setting into its trimmed,
+// non-empty values. It is used by consumers that need the raw list, e.g. the
+// CORS origins and the trusted proxies.
+func SplitList(raw string) []string {
 	if raw == "" {
 		return nil
 	}
@@ -335,7 +338,7 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	origins := splitOrigins(c.CORSAllowedOrigins)
+	origins := SplitList(c.CORSAllowedOrigins)
 	if c.Stage == "prod" && len(origins) == 0 {
 		errs = append(errs, "CORS_ALLOWED_ORIGINS is required in prod")
 	}

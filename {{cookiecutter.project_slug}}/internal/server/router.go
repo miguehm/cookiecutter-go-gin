@@ -3,7 +3,6 @@ package server
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"{{ cookiecutter.go_module }}/configs"
@@ -34,7 +33,7 @@ import (
 func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness, rateLimiter *middlewares.RateLimiter{% if cookiecutter.use_db == "yes" %}, userController *controllers.UserController{% endif %}) (*gin.Engine, error) {
 	gin.SetMode(cfg.GinMode)
 	router := gin.New()
-	if err := router.SetTrustedProxies(trustedProxiesList(cfg)); err != nil {
+	if err := router.SetTrustedProxies(configs.SplitList(cfg.TrustedProxies)); err != nil {
 		logger.Warn("could not set the trusted proxies; client IPs may be reported incorrectly", "err", err)
 	}
 	router.Use(gin.Recovery())
@@ -86,7 +85,7 @@ func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness, r
 }
 
 func corsConfig(cfg *configs.Config) cors.Config {
-	origins := allowedOriginsList(cfg)
+	origins := configs.SplitList(cfg.CORSAllowedOrigins)
 	if len(origins) == 0 {
 		return cors.Config{
 			AllowOrigins:     []string{"*"},
@@ -114,34 +113,4 @@ func corsConfig(cfg *configs.Config) cors.Config {
 		AllowCredentials: creds,
 		MaxAge:           24 * time.Hour,
 	}
-}
-
-func allowedOriginsList(cfg *configs.Config) []string {
-	if cfg.CORSAllowedOrigins == "" {
-		return nil
-	}
-	parts := strings.Split(cfg.CORSAllowedOrigins, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func trustedProxiesList(cfg *configs.Config) []string {
-	if cfg.TrustedProxies == "" {
-		return nil
-	}
-	parts := strings.Split(cfg.TrustedProxies, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
 }

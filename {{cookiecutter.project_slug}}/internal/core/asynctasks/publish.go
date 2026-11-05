@@ -21,12 +21,12 @@ func NewPublisher(client *asynq.Client) *Publisher {
 
 // Publish enqueues a task built from an arbitrary payload.
 func (p *Publisher) Publish(taskType string, payload any, opts ...asynq.Option) error {
+	if p == nil || p.client == nil {
+		return fmt.Errorf("asynq client is not initialized")
+	}
 	task, err := NewTask(taskType, payload)
 	if err != nil {
 		return fmt.Errorf("could not create task: %w", err)
-	}
-	if p == nil || p.client == nil {
-		return fmt.Errorf("asynq client is not initialized")
 	}
 	if _, err := p.client.Enqueue(task, opts...); err != nil {
 		return fmt.Errorf("could not enqueue task: %w", err)
