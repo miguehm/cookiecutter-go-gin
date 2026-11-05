@@ -1,5 +1,4 @@
 # !/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 uvx --from invoke --with jinja2 inv <task>
 """
@@ -68,7 +67,7 @@ def validate_model_name(model):
 
 
 def read_go_module():
-    with open('go.mod', 'r') as file:
+    with open('go.mod') as file:
         for line in file:
             if line.startswith('module '):
                 return line.split(None, 1)[1].strip()
@@ -101,7 +100,7 @@ def gofmt(path):
 def read_config_file(file_path):
     config = {}
 
-    with open(file_path, 'r') as file:
+    with open(file_path) as file:
         for line in file:
             line = line.strip()
 
@@ -116,7 +115,7 @@ def read_config_file(file_path):
 
 def _format_env(stage):
     logger.info(f"format env for stage {stage}")
-    with open('env/_template.env', 'r') as file:
+    with open('env/_template.env') as file:
         template_content = file.read()
 
     config = read_config_file(f'env/{stage}.env')
@@ -137,7 +136,10 @@ def format_env(c, stage="all"):
 
 @task
 def gen_repository(c, model):
-    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'), keep_trailing_newline=True)
+    env = Environment(
+        loader=FileSystemLoader(searchpath='./tools/templates'),
+        keep_trailing_newline=True,
+    )
     template = env.get_template('repository.j2')
     rendered_content = template.render(template_context(model))
 
@@ -151,7 +153,10 @@ def gen_repository(c, model):
 
 @task
 def gen_service(c, model):
-    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'), keep_trailing_newline=True)
+    env = Environment(
+        loader=FileSystemLoader(searchpath='./tools/templates'),
+        keep_trailing_newline=True,
+    )
     template = env.get_template('service.j2')
     rendered_content = template.render(template_context(model))
 
@@ -165,7 +170,10 @@ def gen_service(c, model):
 
 @task
 def gen_model(c, model):
-    env = Environment(loader=FileSystemLoader(searchpath='./tools/templates'), keep_trailing_newline=True)
+    env = Environment(
+        loader=FileSystemLoader(searchpath='./tools/templates'),
+        keep_trailing_newline=True,
+    )
     template = env.get_template('model.j2')
     rendered_content = template.render(template_context(model))
 

@@ -1,0 +1,22 @@
+[project]
+name = "cookiecutter-go-gin-tests"
+version = "0.1.0"
+description = "Test harness for the cookiecutter-go-gin template"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# The hook scripts interpolate Cookiecutter (Jinja) into the file and are
+# therefore not valid Python before rendering.
+exclude = ["hooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"*_test.py" = []  # harness tests are linted with the same rules

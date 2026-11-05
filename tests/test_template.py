@@ -806,7 +806,10 @@ def test_generated_makefile_targets(generated_projects, fixture):
     use_worker = context["use_worker"] == "yes" and context["use_asynq"] == "yes"
     use_swagger = context["use_swagger"] == "yes"
 
-    targets = ["fmt", "vet", "lint", "build", "build-all", "run", "test", "test-unit", "test-integration", "coverage"]
+    targets = [
+        "fmt", "vet", "lint", "build", "build-all", "run",
+        "test", "test-unit", "test-integration", "coverage",
+    ]
     if use_db:
         targets += ["migrate", "dbdiff", "dbapply"]
     if use_worker:
@@ -986,9 +989,10 @@ def test_full_project_http_smoke(generated_projects):
         integration_env = _integration_env(project)
         run(["go", "test", "-tags=integration", "./..."], cwd=project, env=integration_env)
 
-        run(["go", "build", "-o", "/tmp/cookiecutter-smoke-http", "./cmd/http"], cwd=project, env=env)
+        smoke_bin = "/tmp/cookiecutter-smoke-http"
+        run(["go", "build", "-o", smoke_bin, "./cmd/http"], cwd=project, env=env)
         server = subprocess.Popen(
-            ["/tmp/cookiecutter-smoke-http"],
+            [smoke_bin],
             cwd=project,
             env=env,
             stdout=subprocess.PIPE,

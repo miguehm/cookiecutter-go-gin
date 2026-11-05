@@ -8,12 +8,13 @@ TRIVY_VERSION ?= v0.76.1
 # Fixtures que genera el arnés; vacío significa los ocho del repositorio.
 FIXTURES ?=
 
-.PHONY: help test-template security cookiecutter-version
+.PHONY: help test-template lint-py security cookiecutter-version
 
 help:
 	@echo "Targets:"
 	@echo "  test-template  Genera los fixtures y valida los proyectos resultantes"
 	@echo "                 FIXTURES=minimal,full para acotar la matriz"
+	@echo "  lint-py        Ruff sobre el arnés de tests"
 	@echo "  security       Escanea el template con gitleaks y trivy (si están disponibles)"
 	@echo "                 gosec y govulncheck corren dentro de test-template"
 	@echo "  cookiecutter-version  Imprime la versión fijada de Cookiecutter"
@@ -29,10 +30,14 @@ help:
 cookiecutter-version:
 	@echo "$(COOKIECUTTER_VERSION)"
 
-test-template:
+test-template: lint-py
 	FIXTURES="$(FIXTURES)" \
 	COOKIECUTTER_VERSION=$(COOKIECUTTER_VERSION) \
 	uvx --with pytest --with pyyaml --with pexpect pytest -q tests/
+
+# Aviso NixOS: `uvx ruff` puede no arrancar; usa `nix-shell -p ruff --run "ruff check ."` en ese caso.
+lint-py:
+	uvx ruff check .
 
 security:
 	@if command -v gitleaks >/dev/null 2>&1; then \

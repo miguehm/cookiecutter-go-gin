@@ -68,7 +68,7 @@ def fake_data(conn, table_name, num_records, use_bulk=False, enable_debug=False)
     cursor = conn.cursor()
     cursor.execute(f"""
         SELECT column_name, data_type, character_maximum_length
-        FROM information_schema.columns 
+        FROM information_schema.columns
         WHERE table_name = '{table_name}';
     """)
     columns = cursor.fetchall()
@@ -84,7 +84,7 @@ def fake_data(conn, table_name, num_records, use_bulk=False, enable_debug=False)
 
         current_index += 1
         if enable_debug:
-            print(" | ".join([f"{c}:{v}" for c, v in zip(column_names_list, values)]))
+            print(" | ".join([f"{c}:{v}" for c, v in zip(column_names_list, values, strict=True)]))
             print("-" * 120)
 
         if use_bulk:
@@ -117,13 +117,15 @@ def main():
     parser = argparse.ArgumentParser(description='Fake database.')
     parser.add_argument('table', type=str, help='Table name to fake')
     parser.add_argument('num', type=int, help='Num rows to fake')
-    parser.add_argument('-v', '--verbose', action=argparse.BooleanOptionalAction, default=False, help='Enable debug')
-    parser.add_argument('-b', '--bulk', action=argparse.BooleanOptionalAction, default=False, help='Bulk insert')
+    parser.add_argument('-v', '--verbose', action=argparse.BooleanOptionalAction, default=False,
+                        help='Enable debug')
+    parser.add_argument('-b', '--bulk', action=argparse.BooleanOptionalAction, default=False,
+                        help='Bulk insert')
 
     # Parse the arguments
     args = parser.parse_args()
 
-    with open("fake.yaml", 'r') as file:
+    with open("fake.yaml") as file:
         configs = yaml.safe_load(file)
 
     conn = psycopg2.connect(
