@@ -106,3 +106,5 @@ venv.bak/
 .qoder/
 
 .DS_Store
+uv.lock
+.venv/
