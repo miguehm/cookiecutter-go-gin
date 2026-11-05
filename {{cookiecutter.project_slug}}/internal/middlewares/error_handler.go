@@ -121,11 +121,7 @@ func ErrorHandler(logger *slog.Logger) gin.HandlerFunc {
 						if !c.Writer.Written() {
 							c.JSON(apiError.Status, gin.H{"code": apiError.ErrorCode, "message": apiError.Message})
 						}
-						if apiError.ErrorCode == "ErrSessionInvalid" {
-							logger.Info(e.Error())
-						} else {
-							errMessage = e.Error()
-						}
+						errMessage = e.Error()
 					} else {
 						errMessage = e.Error()
 					}

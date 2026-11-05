@@ -10,6 +10,7 @@ import (
 {% if cookiecutter.use_db == "yes" %}
 	"{{ cookiecutter.go_module }}/internal/controllers"
 {% endif %}
+	"{{ cookiecutter.go_module }}/internal/middlewares"
 	"{{ cookiecutter.go_module }}/internal/testutil"
 
 	"github.com/gin-gonic/gin"
@@ -27,9 +28,9 @@ func newTestRouter(t *testing.T) *gin.Engine {
 	readiness := NewReadiness({% if cookiecutter.use_db == "yes" %}nil{% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}, nil{% endif %}{% elif cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
 {% if cookiecutter.use_db == "yes" %}
 	controller := controllers.NewUserController(nil, cfg)
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false), controller)
 {% else %}
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false))
 {% endif %}
 	if err != nil {
 		t.Fatalf("NewRouter returned error: %v", err)
@@ -93,10 +94,10 @@ func TestRouterCORSWildcardsOrigin(t *testing.T) {
 {% if cookiecutter.use_db == "yes" %}
 	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil, nil{% else %}nil{% endif %})
 	controller := controllers.NewUserController(nil, cfg)
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false), controller)
 {% else %}
 	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false))
 {% endif %}
 	if err != nil {
 		t.Fatalf("NewRouter returned error: %v", err)
@@ -119,10 +120,10 @@ func TestRouterCORSExplicitOrigins(t *testing.T) {
 {% if cookiecutter.use_db == "yes" %}
 	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil, nil{% else %}nil{% endif %})
 	controller := controllers.NewUserController(nil, cfg)
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false), controller)
 {% else %}
 	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false))
 {% endif %}
 	if err != nil {
 		t.Fatalf("NewRouter returned error: %v", err)
@@ -145,10 +146,10 @@ func TestRouterCORSRejectsUnknownOrigin(t *testing.T) {
 {% if cookiecutter.use_db == "yes" %}
 	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil, nil{% else %}nil{% endif %})
 	controller := controllers.NewUserController(nil, cfg)
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, controller)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false), controller)
 {% else %}
 	readiness := NewReadiness({% if cookiecutter.use_redis == "yes" or cookiecutter.use_asynq == "yes" %}nil{% endif %})
-	router, err := NewRouter(cfg, testutil.NewLogger(), readiness)
+	router, err := NewRouter(cfg, testutil.NewLogger(), readiness, middlewares.NewRateLimiter(0, 1, false))
 {% endif %}
 	if err != nil {
 		t.Fatalf("NewRouter returned error: %v", err)

@@ -31,10 +31,12 @@ import (
 
 // NewRouter assembles the Gin engine with every middleware, the health
 // endpoints and the API routes.
-func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness{% if cookiecutter.use_db == "yes" %}, userController *controllers.UserController{% endif %}) (*gin.Engine, error) {
+func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness, rateLimiter *middlewares.RateLimiter{% if cookiecutter.use_db == "yes" %}, userController *controllers.UserController{% endif %}) (*gin.Engine, error) {
 	gin.SetMode(cfg.GinMode)
 	router := gin.New()
-	_ = router.SetTrustedProxies(trustedProxiesList(cfg))
+	if err := router.SetTrustedProxies(trustedProxiesList(cfg)); err != nil {
+		logger.Warn("could not set the trusted proxies; client IPs may be reported incorrectly", "err", err)
+	}
 	router.Use(gin.Recovery())
 	router.Use(middlewares.RequestID())
 	router.Use(middlewares.SecurityHeaders(cfg))
@@ -48,7 +50,6 @@ func NewRouter(cfg *configs.Config, logger *slog.Logger, readiness *Readiness{% 
 	router.Use(middlewares.ErrorHandler(logger))
 	router.Use(middlewares.RequestLogger(logger, cfg))
 
-	rateLimiter := middlewares.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst, cfg.RateLimitEnabled)
 	router.Use(rateLimiter.Middleware("/healthz", "/readyz"))
 
 	router.GET("/healthz", func(c *gin.Context) {

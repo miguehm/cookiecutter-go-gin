@@ -14,6 +14,7 @@ import (
 {% if cookiecutter.use_asynq == "yes" %}
 	"{{ cookiecutter.go_module }}/internal/core/asynctasks"
 {% endif %}
+	"{{ cookiecutter.go_module }}/internal/middlewares"
 	"{{ cookiecutter.go_module }}/internal/server"
 
 	"go.uber.org/fx"
@@ -38,6 +39,7 @@ func main() {
 			asynctasks.NewPublisher,
 {% endif %}
 			server.NewReadiness,
+			middlewares.NewRateLimiterFromConfig,
 			server.NewRouter,
 			server.NewServer,
 		),
@@ -46,10 +48,12 @@ func main() {
 	app.Run()
 }
 
-// registerServer binds the HTTP listener to the fx lifecycle: the port is
-// reserved during startup (so a bind failure aborts the boot) and any error
-// returned by Serve shuts the application down with a non-zero exit code.
-func registerServer(lc fx.Lifecycle, shutdowner fx.Shutdowner, s *server.Server, logger *slog.Logger) {
+// registerServer binds the HTTP listener and the rate limiter to the fx
+// lifecycle: the port is reserved during startup (so a bind failure aborts
+// the boot) and any error returned by Serve shuts the application down with
+// a non-zero exit code. The rate limiter's cleanup goroutine is released
+// after the server drains the in-flight requests.
+func registerServer(lc fx.Lifecycle, shutdowner fx.Shutdowner, s *server.Server, rateLimiter *middlewares.RateLimiter, logger *slog.Logger) {
 	lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
 			if err := s.Start(); err != nil {
@@ -67,7 +71,9 @@ func registerServer(lc fx.Lifecycle, shutdowner fx.Shutdowner, s *server.Server,
 		},
 		OnStop: func(ctx context.Context) error {
 			logger.Info("stopping http server")
-			return s.Shutdown(ctx)
+			serveErr := s.Shutdown(ctx)
+			rateLimiter.Stop()
+			return serveErr
 		},
 	})
 }

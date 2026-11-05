@@ -4,9 +4,33 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+func TestRateLimiterStopReleasesCleanupGoroutine(t *testing.T) {
+	rl := NewRateLimiter(1, 1, true)
+
+	finished := make(chan struct{})
+	go func() {
+		rl.Stop()
+		close(finished)
+	}()
+
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop did not release the cleanup goroutine in time")
+	}
+
+	rl.Stop() // must be idempotent
+}
+
+func TestRateLimiterStopWithoutCleanupGoroutine(t *testing.T) {
+	rl := NewRateLimiter(1, 1, false)
+	rl.Stop() // must not block when the limiter was disabled
+}
 
 func TestRateLimiterEnforcesBurst(t *testing.T) {
 	gin.SetMode(gin.TestMode)
