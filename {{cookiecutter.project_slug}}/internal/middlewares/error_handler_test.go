@@ -111,10 +111,10 @@ func TestValidationErrorToText(t *testing.T) {
 		Email    string `validate:"required,email"`
 		Password string `validate:"min=8,max=64"`
 	}
+	var errs validator.ValidationErrors
 	if err := renderer.Struct(form{}); err == nil {
 		t.Fatal("expected validation errors")
-		return
-	} else if errs, ok := err.(validator.ValidationErrors); !ok {
+	} else if !errors.As(err, &errs) {
 		t.Fatalf("unexpected error type %T", err)
 	} else {
 		var messages []string

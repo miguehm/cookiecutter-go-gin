@@ -36,7 +36,7 @@ func TestLoggingMiddlewareLogsAndReturnsError(t *testing.T) {
 	inner := asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return want })
 
 	got := LoggingMiddleware(logger)(inner).ProcessTask(context.Background(), asynq.NewTask("demo:type", nil))
-	if got != want {
+	if !errors.Is(got, want) {
 		t.Fatalf("middleware changed the error: %v", got)
 	}
 	if !strings.Contains(buf.String(), "failed to process task") {

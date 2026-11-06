@@ -35,9 +35,15 @@ test-template: lint-py
 	COOKIECUTTER_VERSION=$(COOKIECUTTER_VERSION) \
 	uvx --with pytest --with pyyaml --with pexpect pytest -q tests/
 
-# NixOS note: `uvx ruff` may not start; use `nix-shell -p ruff --run "ruff check ."` there.
+# NixOS note: `uvx ruff` may not start; the target falls back to nix-shell there.
 lint-py:
-	uvx ruff check .
+	@if command -v ruff >/dev/null 2>&1; then \
+		ruff check .; \
+	elif [ "$$(. /etc/os-release 2>/dev/null; echo $${ID:-})" = nixos ]; then \
+		nix-shell -p ruff --run "ruff check ."; \
+	else \
+		uvx ruff check .; \
+	fi
 
 security:
 	@if command -v gitleaks >/dev/null 2>&1; then \
