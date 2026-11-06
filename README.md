@@ -6,34 +6,33 @@ service pattern and the utilities a small or medium backend usually needs.
 
 ## Requirements
 
-- [uv](https://docs.astral.sh/uv/) (includes `uvx`).
 - Go 1.27 or newer.
+- [uv](https://docs.astral.sh/uv/) (includes `uvx`) for the test harness; not
+  needed for generating with a natively installed Cookiecutter.
 - Docker and Docker Compose for the test harness and for the services of the
   projects that enable a database, Redis or Asynq.
 - Optional: Atlas, `golangci-lint`, `govulncheck`, `gosec`, `gitleaks` and
   `trivy`.
 
-Do not install Cookiecutter with `pip`: the version is pinned in the `Makefile`
-and in CI, and it is always executed with `uvx`. To read it:
+## Usage
+
+Install Cookiecutter natively with the same version pinned in the `Makefile` and
+in CI (read the pin with `make cookiecutter-version`):
 
 ```sh
-make cookiecutter-version
+uv tool install "cookiecutter==2.7.1"    # or: pipx install "cookiecutter==2.7.1"
 ```
-
-## Usage
 
 Interactive generation (asks every variable):
 
 ```sh
-version="$(make -s cookiecutter-version)"
-uvx --from "cookiecutter==$version" cookiecutter .
+cookiecutter .
 ```
 
 Generation without questions using one of the harness fixtures:
 
 ```sh
-version="$(make -s cookiecutter-version)"
-uvx --from "cookiecutter==$version" cookiecutter --no-input \
+cookiecutter --no-input \
   --config-file tests/fixtures/full.yaml \
   --output-dir /tmp \
   .
@@ -42,6 +41,18 @@ uvx --from "cookiecutter==$version" cookiecutter --no-input \
 Without `--config-file`, `--no-input` uses the defaults from
 `cookiecutter.json`: `project_name` «Project Name» (slug `projectname`), module
 `github.com/yourname/projectname`, MIT license and every feature enabled.
+
+If you prefer not to install anything, run the pinned version on the fly with
+`uvx` (like CI does):
+
+```sh
+version="$(make -s cookiecutter-version)"
+uvx --from "cookiecutter==$version" cookiecutter .
+```
+
+Do not install Cookiecutter with `pip`: the version is pinned in the `Makefile`
+and in CI. Installing it with `uv tool` or `pipx` keeps the local runs aligned
+with the ones the harness performs.
 
 ## Variables
 
