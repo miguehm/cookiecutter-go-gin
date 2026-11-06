@@ -48,8 +48,8 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 // Start reserves the TCP port so that a failure (port already in use, missing
 // permission) is reported before the application reports itself as running.
 func (s *Server) Start() error {
-	// #nosec G102 -- el bind deliberado es ":<puerto>" para que la imagen
-	// funcione dentro del contenedor y del orquestador.
+	// #nosec G102 -- the deliberate bind is ":<port>" so the image
+	// works inside the container and the orchestrator.
 	listener, err := net.Listen("tcp", ":"+s.cfg.Port)
 	if err != nil {
 		return fmt.Errorf("can't listen on port %s: %w", s.cfg.Port, err)

@@ -37,7 +37,7 @@ func TestNewAsynqServer(t *testing.T) {
 
 	srv := newAsynqServer(cfg)
 	if srv == nil {
-		t.Fatal("newAsynqServer devolvió nil")
+		t.Fatal("newAsynqServer returned nil")
 	}
 }
 
@@ -47,7 +47,7 @@ func TestServeMuxRegistersEveryTask(t *testing.T) {
 	for _, taskType := range []string{tasks.TypeEmailDelivery, tasks.TypeDebugTask} {
 		handler, _ := mux.Handler(asynq.NewTask(taskType, nil))
 		if handler == nil {
-			t.Errorf("no hay handler registrado para %s", taskType)
+			t.Errorf("no handler registered for %s", taskType)
 		}
 	}
 }
@@ -78,16 +78,16 @@ func TestWorkerShutdownIsBoundedByContext(t *testing.T) {
 
 	hook := lifecycle.hooks[0]
 	if hook.OnStart == nil || hook.OnStop == nil {
-		t.Fatal("el worker debe registrar OnStart y OnStop")
+		t.Fatal("the worker must register OnStart and OnStop")
 	}
 
-	// Apagar un worker que nunca arrancó no debe bloquear.
+	// Stopping a worker that never started must not block.
 	if err := hook.OnStop(ctx); err != nil {
 		t.Fatalf("OnStop returned error: %v", err)
 	}
 
 	if !reachable(cfg.RedisHost + ":" + cfg.RedisPort) {
-		t.Log("redis no disponible: se comprueba solo el registro y el apagado")
+		t.Log("redis not available: only registration and shutdown are checked")
 		return
 	}
 
@@ -97,7 +97,7 @@ func TestWorkerShutdownIsBoundedByContext(t *testing.T) {
 	if err := hook.OnStop(ctx); err != nil {
 		t.Fatalf("OnStop returned error: %v", err)
 	}
-	// Detener de nuevo no debe bloquear ni fallar.
+	// Stopping again must neither block nor fail.
 	if err := hook.OnStop(ctx); err != nil {
 		t.Fatalf("segundo OnStop returned error: %v", err)
 	}

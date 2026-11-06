@@ -14,7 +14,7 @@ func loadEnvFile(t *testing.T, name string) map[string]string {
 	path := filepath.Join("..", "env", name)
 	file, err := os.Open(path)
 	if err != nil {
-		t.Fatalf("no se pudo leer %s: %v", path, err)
+		t.Fatalf("could not read %s: %v", path, err)
 	}
 	defer func() { _ = file.Close() }()
 
@@ -55,11 +55,11 @@ func TestProdEnvHasNoEmbeddedSecrets(t *testing.T) {
 
 	for _, key := range []string{"JWT_SECRET", "BASIC_AUTH_PASS", "DB_PASS", "REDIS_PASS", "SENTRY_DSN"} {
 		if value := prod[key]; value != "" {
-			t.Errorf("%s no debe llevar un valor por defecto en prod.env, se obtuvo %q", key, value)
+			t.Errorf("%s must not carry a default value in prod.env, got %q", key, value)
 		}
 	}
 	if user := prod["BASIC_AUTH_USER"]; user == "dev" {
-		t.Error("BASIC_AUTH_USER no puede ser el valor por defecto dev en prod.env")
+		t.Error("BASIC_AUTH_USER cannot be the dev default value in prod.env")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestProdEnvIsRejectedWithoutCorsOrigins(t *testing.T) {
 
 	err := env.Validate()
 	if err == nil {
-		t.Fatal("una configuración en prod sin CORS_ALLOWED_ORIGINS debe ser rechazada (fallo cerrado)")
+		t.Fatal("a prod configuration without CORS_ALLOWED_ORIGINS must be rejected (fail closed)")
 	}
 	if !strings.Contains(err.Error(), "CORS_ALLOWED_ORIGINS") {
 		t.Fatalf("error = %q", err)

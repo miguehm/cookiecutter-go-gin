@@ -217,8 +217,8 @@ func resolveEnvFile(opts LoadOptions, stage string) (string, []string, error) {
 }
 
 func isFile(path string) bool {
-	// #nosec G703 -- solo se comprueba la existencia de un fichero de
-	// configuración construido a partir del cwd o del binario, nunca se lee.
+	// #nosec G703 -- only the existence of a configuration file built from
+	// the cwd or the binary path is checked, it is never read or written.
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }

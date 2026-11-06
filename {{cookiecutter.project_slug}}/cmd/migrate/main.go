@@ -13,8 +13,8 @@ import (
 	"{{ cookiecutter.go_module }}/configs"
 )
 
-// buildDatabaseURL ensambla la URL de conexión a partir de la configuración.
-// net/url y net.JoinHostPort no fallan, por eso no devuelve error.
+// buildDatabaseURL assembles the connection URL from the configuration.
+// net/url and net.JoinHostPort do not fail, hence no error is returned.
 func buildDatabaseURL(cfg *configs.Config) string {
 	u := &url.URL{
 		Scheme: "postgresql",
@@ -38,7 +38,7 @@ func main() {
 	}
 	dsn := buildDatabaseURL(cfg)
 	args := []string{"migrate", "apply", "--url", dsn, "--dir", "file://migrations"}
-	// #nosec G204 -- argv fijo construido internamente, sin shell de por medio
+	// #nosec G204 -- fixed argv built internally, no shell involved
 	cmd := exec.Command("atlas", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

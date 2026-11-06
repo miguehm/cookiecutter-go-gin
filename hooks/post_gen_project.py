@@ -48,11 +48,11 @@ for path, should_remove in REMOVALS:
         remove(path)
 
 if not (PROJECT_ROOT / "go.mod").exists():
-    fail("no se generó go.mod")
+    fail("go.mod was not generated")
 
 gofmt = shutil.which("gofmt")
 if gofmt is None:
-    print("WARNING: gofmt no está instalado; no se han formateado los archivos Go", file=sys.stderr)
+    print("WARNING: gofmt is not installed; Go files have not been formatted", file=sys.stderr)
 else:
     go_files = [str(path) for path in PROJECT_ROOT.rglob("*.go")]
     if go_files:
@@ -62,10 +62,10 @@ else:
             text=True,
         )
         if result.returncode != 0:
-            fail(f"gofmt falló: {result.stderr.strip()}")
+            fail(f"gofmt failed: {result.stderr.strip()}")
 
-print(f"Proyecto generado en {PROJECT_ROOT}")
-print("Siguientes pasos:")
+print(f"Project generated at {PROJECT_ROOT}")
+print("Next steps:")
 print(f"  cd {PROJECT_SLUG}")
 if USE_DB or USE_REDIS or USE_ASYNQ:
     print("  docker compose up -d")

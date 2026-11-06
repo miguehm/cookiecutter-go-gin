@@ -19,7 +19,7 @@ func TestNewHTTPServerTimeouts(t *testing.T) {
 		t.Errorf("Addr = %q", srv.Addr)
 	}
 	if srv.Handler != handler {
-		t.Error("Handler no coincide")
+		t.Error("Handler mismatch")
 	}
 
 	checks := map[string]struct {
@@ -35,7 +35,7 @@ func TestNewHTTPServerTimeouts(t *testing.T) {
 			t.Errorf("%s = %v, se espera %v", name, check.got, check.want)
 		}
 		if check.got <= 0 {
-			t.Errorf("%s no debe ser ilimitado", name)
+			t.Errorf("%s must not be unlimited", name)
 		}
 	}
 
@@ -47,7 +47,7 @@ func TestNewHTTPServerTimeouts(t *testing.T) {
 func TestServerStartFailsWhenPortIsBusy(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Fatalf("no se pudo reservar un puerto: %v", err)
+		t.Fatalf("could not reserve a port: %v", err)
 	}
 	defer func() { _ = listener.Close() }()
 
@@ -60,7 +60,7 @@ func TestServerStartFailsWhenPortIsBusy(t *testing.T) {
 
 	server := NewServer(cfg, testutil.NewLogger(), newTestRouter(t))
 	if err := server.Start(); err == nil {
-		t.Fatal("Start debía fallar con el puerto ocupado")
+		t.Fatal("Start was expected to fail with the port already in use")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestServerShutdownClosesConnections(t *testing.T) {
 		t.Fatalf("Start returned error: %v", err)
 	}
 	if server.Addr() == "" {
-		t.Fatal("Addr debe devolver la dirección real tras Start")
+		t.Fatal("Addr must return the real address after Start")
 	}
 
 	serveErr := make(chan error, 1)
@@ -105,6 +105,6 @@ func TestServerShutdownClosesConnections(t *testing.T) {
 			t.Fatalf("Serve returned %v after a clean shutdown", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("Serve no terminó tras el apagado")
+		t.Fatal("Serve did not finish after the shutdown")
 	}
 }

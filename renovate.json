@@ -14,7 +14,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Pin de Cookiecutter en el Makefile y en la CI",
+      "description": "Cookiecutter pin in the Makefile and the CI",
       "matchStrings": [
         "COOKIECUTTER_VERSION\\s*\\?=\\s*(?<currentValue>\\d+\\.\\d+\\.\\d+)",
         "COOKIECUTTER_VERSION:\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
@@ -29,7 +29,7 @@
     },
     {
       "customType": "regex",
-      "description": "Versión de Go en la CI de la plantilla y en la generada",
+      "description": "Go version in the template and the generated CI",
       "matchStrings": [
         "GO_VERSION:\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
       ],
@@ -42,7 +42,7 @@
     },
     {
       "customType": "regex",
-      "description": "golangci-lint en el Makefile y en la CI",
+      "description": "golangci-lint in the Makefile and the CI",
       "matchStrings": [
         "GOLANGCI_LINT_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
         "GOLANGCI_LINT_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
@@ -57,7 +57,7 @@
     },
     {
       "customType": "regex",
-      "description": "govulncheck en el Makefile y en la CI",
+      "description": "govulncheck in the Makefile and the CI",
       "matchStrings": [
         "GOVULNCHECK_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
         "GOVULNCHECK_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
@@ -72,7 +72,7 @@
     },
     {
       "customType": "regex",
-      "description": "gosec en el Makefile y en la CI",
+      "description": "gosec in the Makefile and the CI",
       "matchStrings": [
         "GOSEC_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
         "GOSEC_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
@@ -87,7 +87,7 @@
     },
     {
       "customType": "regex",
-      "description": "gitleaks en el Makefile y en la CI",
+      "description": "gitleaks in the Makefile and the CI",
       "matchStrings": [
         "GITLEAKS_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
         "GITLEAKS_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
@@ -102,7 +102,7 @@
     },
     {
       "customType": "regex",
-      "description": "trivy en el Makefile y en la CI",
+      "description": "trivy in the Makefile and the CI",
       "matchStrings": [
         "TRIVY_VERSION\\s*\\?=\\s*(?<currentValue>v[\\d.]+)",
         "TRIVY_VERSION:\\s*\"(?<currentValue>v[\\d.]+)\""
@@ -117,7 +117,7 @@
     },
     {
       "customType": "regex",
-      "description": "Imágenes del compose templado (postgres, redis y atlas)",
+      "description": "Images of the templated compose (postgres, redis and atlas)",
       "matchStrings": [
         "image:\\s+(?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
       ],
@@ -135,7 +135,7 @@
       "matchManagers": [
         "gomod"
       ],
-      "groupName": "módulos Go",
+      "groupName": "Go modules",
       "groupSlug": "go-modules"
     },
     {
@@ -148,14 +148,14 @@
       "matchManagers": [
         "custom.regex"
       ],
-      "groupName": "herramientas de CI",
+      "groupName": "CI tools",
       "groupSlug": "ci-tools"
     },
     {
       "matchDatasources": [
         "docker"
       ],
-      "groupName": "imágenes Docker",
+      "groupName": "docker images",
       "groupSlug": "docker-images"
     },
     {

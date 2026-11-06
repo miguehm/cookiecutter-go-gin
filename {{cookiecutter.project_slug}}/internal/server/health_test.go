@@ -70,6 +70,6 @@ func TestReadinessPassesContextToChecks(t *testing.T) {
 			t.Fatalf("status = %d, want 503 when a check times out", code)
 		}
 	case <-deadline:
-		t.Fatal("el handler no aplicó el timeout de readiness")
+		t.Fatal("the handler did not apply the readiness timeout")
 	}
 }

@@ -1,17 +1,17 @@
-# Plan de actualización — cookiecutter-go-gin
+# Upgrade plan — cookiecutter-go-gin
 
-Objetivo: que la plantilla genere un proyecto compilable, actualizado, seguro y
-con una estrategia de test clara, y mejorar su DX. Ejecutar las fases en orden;
-cada fase debe terminar con el arnés de pruebas en verde (`uvx cookiecutter` +
-`go build ./...` + `go vet ./...` + `go test ./...`).
+Goal: make the template generate a project that builds, is up to date, secure and
+has a clear testing strategy, and improve its DX. Run the phases in order; each
+phase must end with the test harness green (`uvx cookiecutter` + `go build ./...`
++ `go vet ./...` + `go test ./...`).
 
-## Convenciones
+## Conventions
 
-- Todas las generaciones de prueba usan `uvx`; nunca `pip install cookiecutter`.
-- La versión de cookiecutter se fija en un único sitio (`COOKIECUTTER_VERSION`
-  en el `Makefile` y en CI) y se actualiza con Renovate. No mezclar rango
-  (`>=2.6,<3`) con pin exacto.
-- Comando canónico:
+- All trial generations use `uvx`; never `pip install cookiecutter`.
+- The cookiecutter version is pinned in a single place (`COOKIECUTTER_VERSION` in
+  the `Makefile` and in CI) and updated by Renovate. Do not mix a range
+  (`>=2.6,<3`) with an exact pin.
+- Canonical command:
 
   ```sh
   uvx --from "cookiecutter==${COOKIECUTTER_VERSION}" cookiecutter --no-input \
@@ -19,54 +19,54 @@ cada fase debe terminar con el arnés de pruebas en verde (`uvx cookiecutter` +
     --output-dir "$tmp" .
   ```
 
-- Los tests invocan `uvx cookiecutter` mediante `subprocess`, usando la misma
-  versión fijada (`--from`); no usar `pytest-cookies`, porque ejecuta
-  cookiecutter en proceso y no prueba la CLI real.
-- Las dependencias de test se declaran explícitamente:
+- Tests invoke `uvx cookiecutter` via `subprocess`, using the same pinned
+  version (`--from`); do not use `pytest-cookies`, because it runs cookiecutter
+  in-process and does not exercise the real CLI.
+- Test dependencies are declared explicitly:
 
   ```sh
   uvx --with pytest --with pyyaml --with pexpect pytest -q tests/
   ```
 
-- Los hooks solo pueden usar la stdlib de Python. Si necesitan paquetes,
-  declararlos explícitamente con `uvx --with`.
-- El arnés de pruebas sí puede usar red (descarga de módulos Go); cachear
-  `GOMODCACHE` y `UV_CACHE_DIR`. Los hooks de generación no deben depender de
-  red.
-- Herramientas requeridas: Go (versión de la matriz), uv/uvx, Docker y Atlas.
-  Para lint y seguridad: `golangci-lint`, `govulncheck`, `gosec` y `trivy`,
-  fijados por versión en CI y Makefile.
-- Las referencias `archivo:línea` son orientativas; validarlas contra el código
-  antes de editar.
-- Los IDs de paso (`Fase.Paso`; en la Fase 0 se añade la subfase, por ejemplo
-  `0.1.4`) son estables y se usan en las tablas de dependencias.
+- Hooks may only use the Python stdlib. If they need packages, declare them
+  explicitly with `uvx --with`.
+- The test harness may use the network (Go module downloads); cache
+  `GOMODCACHE` and `UV_CACHE_DIR`. Generation hooks must not depend on the
+  network.
+- Required tools: Go (version from the matrix), uv/uvx, Docker and Atlas.
+  For lint and security: `golangci-lint`, `govulncheck`, `gosec` and `trivy`,
+  pinned by version in CI and the Makefile.
+- The `file:line` references are indicative; validate them against the code
+  before editing.
+- Step IDs (`Phase.Step`; in Phase 0 the subphase is added, e.g. `0.1.4`) are
+  stable and are used in the dependency tables.
 
-## Seguimiento
+## Tracking
 
-### Estados
+### States
 
-- `[ ]` pendiente · `[~]` en curso · `[x]` hecho y verificado · `[!]` bloqueado ·
-  `[–]` descartado.
+- `[ ]` pending · `[~]` in progress · `[x]` done and verified · `[!]` blocked ·
+  `[–]` discarded.
 
-Un paso solo pasa a `[x]` cuando su evidencia está registrada en la tabla de su
-subfase y el gate de la fase sigue verde. `[~]`, `[!]` y `[–]` no renderizan
-checkbox en GitHub, pero son legibles en crudo.
+A step only becomes `[x]` once its evidence is recorded in its subphase's table
+and the phase gate is still green. `[~]`, `[!]` and `[–]` do not render as
+checkboxes on GitHub, but are readable as raw text.
 
-### Progreso
+### Progress
 
-| Fase | Pasos | Hechos | Bloqueados | Gate |
+| Phase | Steps | Done | Blocked | Gate |
 |---|---:|---:|---:|---|
 | 0 | 49 | 49 | 0 | `make test-template` |
-| 1 | 7 | 7 | 0 | `go mod tidy -diff` + build reproducible |
-| 2 | 20 | 20 | 0 | `govulncheck`/`gosec`/`gitleaks` verdes |
-| 3 | 8 | 8 | 0 | sin globales ni `log.Fatal` en librerías |
-| 4 | 8 | 8 | 0 | CI completa sobre la matriz |
-| 5 | 8 | 8 | 0 | modo interactivo + `--no-input` |
+| 1 | 7 | 7 | 0 | `go mod tidy -diff` + reproducible build |
+| 2 | 20 | 20 | 0 | `govulncheck`/`gosec`/`gitleaks` green |
+| 3 | 8 | 8 | 0 | no globals or `log.Fatal` in libraries |
+| 4 | 8 | 8 | 0 | full CI over the matrix |
+| 5 | 8 | 8 | 0 | interactive mode + `--no-input` |
 | **Total** | **100** | **100** | **0** | — |
 
-### Dependencias entre fases
+### Phase dependencies
 
-| Fase | Depende de | Desbloquea |
+| Phase | Depends on | Unlocks |
 |---|---|---|
 | 0 | — | 1, 2, 3, 4, 5 |
 | 1 | 0.1, 0.3 | 2, 3, 4 |
@@ -75,275 +75,272 @@ checkbox en GitHub, pero son legibles en crudo.
 | 4 | 0.3, 0.4, 1, 3 | 5 |
 | 5 | 0.2, 0.3 | — |
 
-## Fase 0 — Base reproducible, compilable y arnés uvx
+## Phase 0 — Reproducible, buildable base and uvx harness
 
-### 0.1 Compilación y arranque
+### 0.1 Build and startup
 
-#### Dependencias
+#### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 0.1.1 | — | 0.1.2 | commit base + `go build ./...` inicial |
+| 0.1.1 | — | 0.1.2 | baseline commit + initial `go build ./...` |
 | 0.1.2 | 0.1.1 | 0.1.3 | `go build ./...` |
-| 0.1.3 | 0.1.2 | 0.1.4, 0.1.5 | `go build ./...` sin errores |
-| 0.1.4 | 0.1.3 | 0.1.5 | `Bootstrap` referenciado o eliminado |
-| 0.1.5 | 0.1.3, 0.1.4 | 0.1.6, 0.1.17 | arranque determinista |
-| 0.1.6 | 0.1.5 | 0.1.17 | test de logger/arranque |
+| 0.1.3 | 0.1.2 | 0.1.4, 0.1.5 | `go build ./...` without errors |
+| 0.1.4 | 0.1.3 | 0.1.5 | `Bootstrap` referenced or removed |
+| 0.1.5 | 0.1.3, 0.1.4 | 0.1.6, 0.1.17 | deterministic startup |
+| 0.1.6 | 0.1.5 | 0.1.17 | logger/startup test |
 | 0.1.7 | 0.1.2 | 0.1.17 | `go build ./...` |
-| 0.1.8 | 0.1.2 | 0.1.17 | test JWT |
+| 0.1.8 | 0.1.2 | 0.1.17 | JWT test |
 | 0.1.9 | 0.1.3 | 0.1.17 | `go vet ./...` |
 | 0.1.10 | 0.1.2 | 0.1.17 | `go build ./...` |
-| 0.1.11 | 0.1.2 | 0.1.17 | `make` sin errores |
+| 0.1.11 | 0.1.2 | 0.1.17 | `make` without errors |
 | 0.1.12 | 0.1.2 | 0.1.17 | `make help` |
-| 0.1.13 | 0.1.2 | 0.1.17 | render de `model.j2` |
+| 0.1.13 | 0.1.2 | 0.1.17 | render of `model.j2` |
 | 0.1.14 | 0.1.2 | 0.1.17 | `go vet ./...` |
 | 0.1.15 | 0.1.2 | 0.1.17 | `go test ./pkg/filters/...` |
-| 0.1.16 | 0.1.2 | 0.1.17 | build o `docker build` |
+| 0.1.16 | 0.1.2 | 0.1.17 | build or `docker build` |
 | 0.1.17 | 0.1.2–0.1.16 | 1.1 | `go build ./...` + `go vet ./...` |
 
 #### Checklist
 
-- [x] **0.1.1** Crear un commit/base de referencia y ejecutar `go build ./...`
-      sobre un proyecto generado para dejar constancia del estado inicial.
-- [x] **0.1.2** Añadir a `go.mod` las dependencias importadas y ausentes:
-      `go.uber.org/fx`, `github.com/gin-contrib/pprof` y
+- [x] **0.1.1** Create a reference/baseline commit and run `go build ./...`
+      on a generated project to record the initial state.
+- [x] **0.1.2** Add the imported, missing dependencies to `go.mod`:
+      `go.uber.org/fx`, `github.com/gin-contrib/pprof` and
       `github.com/hibiken/asynqmon`.
-- [x] **0.1.3** Corregir los errores de compilación no contemplados en la
-      revisión inicial:
-  - `cmd/http/main.go:20`: `configs.PreServerShutdown()` no existe; debe usar
-    `configs.PreServerStop()` o el hook de fx.
-  - `cmd/http/main.go:25`: `configs.AsynqClient` es privado; cerrar con
-    `configs.GetAsynqClient().Close()` o registrar el cierre en un `fx.Hook`.
-  - Garantizar `InitLogger()` antes de `GetLogger()`: hoy ningún `main` lo
-    llama y `internal/middlewares/error_handler.go:18` lo invoca durante la
-    inicialización del paquete.
-- [x] **0.1.4** Añadir `configs.Bootstrap()` o eliminar las llamadas en
-      `cmd/worker/main.go:16` y `cmd/devcli/main.go:15`.
-- [x] **0.1.5** Inicializar `InitLogger`, `InitDBClient`, `InitRedisClient` e
-      `InitAsynqClient` de forma determinista y en el orden correcto.
-- [x] **0.1.6** Sustituir `var logger = configs.GetLogger()` por inicialización
-      perezosa en `internal/middlewares/error_handler.go:18`.
-- [x] **0.1.7** Corregir la ruta Gin `docs/*any` → `/docs/*any` en
+- [x] **0.1.3** Fix compile errors not covered by the initial review:
+  - `cmd/http/main.go:20`: `configs.PreServerShutdown()` does not exist; it
+    must use `configs.PreServerStop()` or the fx hook.
+  - `cmd/http/main.go:25`: `configs.AsynqClient` is private; close it with
+    `configs.GetAsynqClient().Close()` or register the close in an `fx.Hook`.
+  - Guarantee `InitLogger()` before `GetLogger()`: today no `main` calls it
+    and `internal/middlewares/error_handler.go:18` invokes it during package
+    initialization.
+- [x] **0.1.4** Add `configs.Bootstrap()` or remove the calls at
+      `cmd/worker/main.go:16` and `cmd/devcli/main.go:15`.
+- [x] **0.1.5** Initialize `InitLogger`, `InitDBClient`, `InitRedisClient` and
+      `InitAsynqClient` deterministically, in the correct order.
+- [x] **0.1.6** Replace `var logger = configs.GetLogger()` with lazy
+      initialization in `internal/middlewares/error_handler.go:18`.
+- [x] **0.1.7** Fix the Gin route `docs/*any` → `/docs/*any` at
       `internal/server/router.go:49`.
-- [x] **0.1.8** Evitar el panic de `fields[1]` en
-      `internal/middlewares/jwt_auth.go:23` (validar esquema `Bearer` y
-      longitud).
-- [x] **0.1.9** Eliminar la doble llamada a `PreServerStart()` en
+- [x] **0.1.8** Avoid the `fields[1]` panic at
+      `internal/middlewares/jwt_auth.go:23` (validate the `Bearer` scheme and
+      length).
+- [x] **0.1.9** Remove the double call to `PreServerStart()` in
       `cmd/http/main.go`.
-- [x] **0.1.10** Corregir `configs.GetAsynqClient.Enqueue` →
-      `configs.GetAsynqClient().Enqueue(...)` en
+- [x] **0.1.10** Fix `configs.GetAsynqClient.Enqueue` →
+      `configs.GetAsynqClient().Enqueue(...)` at
       `internal/core/asynctasks/common.go:40`.
-- [x] **0.1.11** Corregir la línea con espacios en `Makefile:25` (usar tab).
-- [x] **0.1.12** Eliminar/implementar el target `mon` (`cmd/asynqmon` no existe)
-      y quitar el target `push` hardcodeado a `unstable`.
-- [x] **0.1.13** Corregir `tools/templates/model.j2` (evitar `gorm.Model` + `ID
-      uuid.UUID` duplicado).
-- [x] **0.1.14** Corregir `pkg/pagination/pagination_test.go`: importa
-      `internal/models` y `models.Agency`, que no existen, y hace fallar
-      `go vet ./...`.
-- [x] **0.1.15** Añadir aserciones reales a `pkg/filters/filters_test.go` (ahora
-      no verifica nada).
-- [x] **0.1.16** Crear `migrations/` (con `.gitkeep` o migración inicial) y el
-      `go.sum` que espera el `Dockerfile`; o ajustar el `Dockerfile` si se
-      decide no versionarlos.
-  - **Decisión:** versionar `migrations/` y `go.sum` o ajustar el `Dockerfile`;
-    registrar la opción elegida en este paso.
-- [x] **0.1.17** Verificar que `go build ./...` y `go vet ./...` pasan sin
-      servicios externos.
+- [x] **0.1.11** Fix the line with spaces at `Makefile:25` (use a tab).
+- [x] **0.1.12** Remove/implement the `mon` target (`cmd/asynqmon` does not
+      exist) and drop the `push` target hardcoded to `unstable`.
+- [x] **0.1.13** Fix `tools/templates/model.j2` (avoid duplicate `gorm.Model` +
+      `ID uuid.UUID`).
+- [x] **0.1.14** Fix `pkg/pagination/pagination_test.go`: it imports
+      `internal/models` and `models.Agency`, which do not exist, and makes
+      `go vet ./...` fail.
+- [x] **0.1.15** Add real assertions to `pkg/filters/filters_test.go` (it
+      currently verifies nothing).
+- [x] **0.1.16** Create `migrations/` (with `.gitkeep` or an initial migration)
+      and the `go.sum` expected by the `Dockerfile`; or adjust the
+      `Dockerfile` if we decide not to track them.
+  - **Decision:** track `migrations/` and `go.sum`, or adjust the `Dockerfile`;
+    record the chosen option in this step.
+- [x] **0.1.17** Verify that `go build ./...` and `go vet ./...` pass without
+      external services.
 
-### 0.2 Configuración y plantilla
+### 0.2 Configuration and template
 
-#### Dependencias
+#### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 0.2.1 | — | 0.2.2, 0.2.3, 0.2.9, 0.2.12, 5.2, 5.5 | `cookiecutter.json` válido |
-| 0.2.2 | 0.2.1 | 0.2.4, 0.2.5, 0.2.7, 0.2.8, 0.3.1, 0.3.5, 5.1 | fixtures condicionales |
-| 0.2.3 | 0.2.1 | 0.2.4, 0.2.10 | `go_module` en proyecto generado |
-| 0.2.4 | 0.2.2, 0.2.3 | 0.2.10, 0.3.6 | tests negativos de `pre_gen` |
-| 0.2.5 | 0.2.2 | 0.2.6 | diff env vs `EnvConfig` |
-| 0.2.6 | 0.2.5 | 0.2.12 | sin secretos versionados |
-| 0.2.7 | 0.2.2 | 0.2.11 | `tasks.py` funciona |
-| 0.2.8 | 0.2.7 | 0.2.11 | stages alineados |
+| 0.2.1 | — | 0.2.2, 0.2.3, 0.2.9, 0.2.12, 5.2, 5.5 | valid `cookiecutter.json` |
+| 0.2.2 | 0.2.1 | 0.2.4, 0.2.5, 0.2.7, 0.2.8, 0.3.1, 0.3.5, 5.1 | conditional fixtures |
+| 0.2.3 | 0.2.1 | 0.2.4, 0.2.10 | `go_module` in generated project |
+| 0.2.4 | 0.2.2, 0.2.3 | 0.2.10, 0.3.6 | `pre_gen` negative tests |
+| 0.2.5 | 0.2.2 | 0.2.6 | env vs `EnvConfig` diff |
+| 0.2.6 | 0.2.5 | 0.2.12 | no versioned secrets |
+| 0.2.7 | 0.2.2 | 0.2.11 | `tasks.py` works |
+| 0.2.8 | 0.2.7 | 0.2.11 | stages aligned |
 | 0.2.9 | 0.2.1 | 0.3.3 | `go mod tidy -diff` |
-| 0.2.10 | 0.2.3, 0.2.4 | 5.4 | hook mínimo en verde |
-| 0.2.11 | 0.2.7, 0.2.8 | 0.2.12 | referencias README válidas |
-| 0.2.12 | 0.2.1, 0.2.6, 0.2.11 | 5.6 | README raíz completo |
+| 0.2.10 | 0.2.3, 0.2.4 | 5.4 | minimal hook green |
+| 0.2.11 | 0.2.7, 0.2.8 | 0.2.12 | valid README references |
+| 0.2.12 | 0.2.1, 0.2.6, 0.2.11 | 5.6 | complete root README |
 
 #### Checklist
 
-- [x] **0.2.1** Consolidar aquí todos los cambios de `cookiecutter.json`
-      (eliminar la duplicidad con la Fase 5): `go_module`, autor, email,
-      licencia, `version` y flags de DB/Redis/Asynq/Worker/Swagger/pprof/Sentry.
-- [x] **0.2.2** Definir los flags en esta fase, antes del arnés, para que los
-      fixtures puedan probar los archivos condicionales.
-- [x] **0.2.3** Usar un módulo Go explícito (`go_module`) en lugar de
-      `project_slug` como module path.
-- [x] **0.2.4** Añadir `hooks/pre_gen_project.py` que valide `project_slug` y
-      `go_module` (sin espacios, sin segmentos vacíos, sin `..`, sin empezar
-      por dígito, sin palabras reservadas de Go).
-- [x] **0.2.5** Alinear `env/_template.env`, `env/dev.env` y
-      `configs.EnvConfig`: faltan `JWT_SECRET`, `DB_NAME`, `REDIS_DB`,
-      `REDIS_TASK_DB`, `ENABLE_LOG_REQUEST_DETAIL`, `STAGE`, etc.
-- [x] **0.2.6** Dejar de versionar credenciales en `env/dev.env`; usar valores
-      de desarrollo no sensibles y documentar `.env.example`.
-- [x] **0.2.7** Corregir `tasks.py`: lee `env/template.env` pero el archivo es
-      `env/_template.env`, y renderiza `{{ .PORT }}` con Jinja (sintaxis
-      inválida). Unificar el nombre y la sintaxis de la plantilla.
-- [x] **0.2.8** Alinear los stages de `tasks.py` (`dev`, `testing`, `unstable`,
-      `staging`) con los archivos reales o eliminar los que no existan.
-- [x] **0.2.9** Decidir la estrategia de `go.sum`: incluirlo en la plantilla y
-      verificar con `go mod tidy -diff`; documentar que el arnés puede usar red
-      y cachear módulos, mientras que los hooks no.
-  - **Decisión:** incluir `go.sum` en la plantilla y verificarlo con
-    `go mod tidy -diff`; registrar la opción elegida en este paso.
-- [x] **0.2.10** Reducir `hooks/post_gen_project.py` a un hook mínimo y Python
-      3: formatear con `gofmt`, validar el resultado y mostrar los siguientes
-      pasos. Eliminar todo el código heredado de Cookiecutter Django.
-- [x] **0.2.11** Corregir referencias del README de plantilla
-      (`cmd/atlas_loader`, `env/_template.env`, `invoke`) y documentar el flujo
-      con `uvx`.
-- [x] **0.2.12** Actualizar el README raíz: requisitos, `uvx cookiecutter`,
-      estructura, comandos generados y uso de features opcionales.
+- [x] **0.2.1** Consolidate all `cookiecutter.json` changes here (removing the
+      duplication with Phase 5): `go_module`, author, email, license,
+      `version`, and the DB/Redis/Asynq/Worker/Swagger/pprof/Sentry flags.
+- [x] **0.2.2** Define the flags in this phase, before the harness, so the
+      fixtures can test the conditional files.
+- [x] **0.2.3** Use an explicit Go module (`go_module`) instead of
+      `project_slug` as the module path.
+- [x] **0.2.4** Add `hooks/pre_gen_project.py` validating `project_slug` and
+      `go_module` (no spaces, no empty segments, no `..`, no leading digit, no
+      Go reserved words).
+- [x] **0.2.5** Align `env/_template.env`, `env/dev.env` and
+      `configs.EnvConfig`: `JWT_SECRET`, `DB_NAME`, `REDIS_DB`,
+      `REDIS_TASK_DB`, `ENABLE_LOG_REQUEST_DETAIL`, `STAGE`, etc. are missing.
+- [x] **0.2.6** Stop versioning credentials in `env/dev.env`; use non-sensitive
+      development values and document `.env.example`.
+- [x] **0.2.7** Fix `tasks.py`: it reads `env/template.env` but the file is
+      `env/_template.env`, and it renders `{{ .PORT }}` with Jinja (invalid
+      syntax). Unify the name and the template syntax.
+- [x] **0.2.8** Align the `tasks.py` stages (`dev`, `testing`, `unstable`,
+      `staging`) with the real files, or remove the ones that do not exist.
+- [x] **0.2.9** Decide the `go.sum` strategy: include it in the template and
+      verify with `go mod tidy -diff`; document that the harness may use the
+      network and cache modules, while hooks must not.
+  - **Decision:** include `go.sum` in the template and verify it with
+    `go mod tidy -diff`; record the chosen option in this step.
+- [x] **0.2.10** Reduce `hooks/post_gen_project.py` to a minimal, Python 3
+      hook: format with `gofmt`, validate the result and show next steps.
+      Remove all the legacy Cookiecutter Django code.
+- [x] **0.2.11** Fix the template README references (`cmd/atlas_loader`,
+      `env/_template.env`, `invoke`) and document the `uvx` flow.
+- [x] **0.2.12** Update the root README: requirements, `uvx cookiecutter`,
+      structure, generated commands, and use of optional features.
 
-### 0.3 Arnés de pruebas y CI mínima
+### 0.3 Test harness and minimal CI
 
-#### Dependencias
+#### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
 | 0.3.0 | 0.1.17 | 0.3.7, 3.8, 4.2 | `docker compose config` |
-| 0.3.1 | 0.2.2 | 0.3.2, 0.3.3, 5.8 | fixtures creados |
+| 0.3.1 | 0.2.2 | 0.3.2, 0.3.3, 5.8 | fixtures created |
 | 0.3.2 | 0.3.1 | 0.3.3, 0.3.8, 4.1 | `make test-template` |
-| 0.3.3 | 0.2.9, 0.3.1, 0.3.2 | 0.3.4, 0.3.7, 0.3.9 | matriz local verde |
-| 0.3.4 | 0.3.3, 0.4.6 | 0.3.8 | `go test ./...` sin servicios |
-| 0.3.5 | 0.2.2, 0.3.1 | 0.3.8 | asserts de archivos condicionales |
-| 0.3.6 | 0.2.4, 0.3.1 | 0.3.8 | tests negativos del hook |
-| 0.3.7 | 0.3.0, 0.3.3 | 0.3.8 | smoke de `/healthz` |
-| 0.3.8 | 0.3.2–0.3.7 | 2.19, 4.5, 5.8 | CI mínima verde |
-| 0.3.9 | 0.3.3 | 0.3.8 | README del arnés |
+| 0.3.3 | 0.2.9, 0.3.1, 0.3.2 | 0.3.4, 0.3.7, 0.3.9 | local matrix green |
+| 0.3.4 | 0.3.3, 0.4.6 | 0.3.8 | `go test ./...` without services |
+| 0.3.5 | 0.2.2, 0.3.1 | 0.3.8 | conditional-file asserts |
+| 0.3.6 | 0.2.4, 0.3.1 | 0.3.8 | hook negative tests |
+| 0.3.7 | 0.3.0, 0.3.3 | 0.3.8 | `/healthz` smoke test |
+| 0.3.8 | 0.3.2–0.3.7 | 2.19, 4.5, 5.8 | minimal CI green |
+| 0.3.9 | 0.3.3 | 0.3.8 | harness README |
 
 #### Checklist
 
-- [x] **0.3.0** Añadir `compose.yaml` con Postgres, Redis y Atlas (adiós a
-      `devhost`). Movido desde la antigua 4.1 para que el smoke test de 0.3.7
-      no dependa de una fase posterior.
-- [x] **0.3.1** Crear `tests/` en la raíz del repositorio de la plantilla (no
-      dentro de `{{cookiecutter.project_slug}}/`) con `test_template.py` y
-      fixtures `tests/fixtures/minimal.yaml`, `no-db.yaml`, `no-redis.yaml`,
-      `no-asynq.yaml`, `no-worker.yaml`, `no-swagger.yaml`, `no-sentry.yaml` y
-      `full.yaml`.
-- [x] **0.3.2** Añadir un `Makefile` raíz con `COOKIECUTTER_VERSION` y
+- [x] **0.3.0** Add `compose.yaml` with Postgres, Redis and Atlas (farewell to
+      `devhost`). Moved from the old 4.1 so the 0.3.7 smoke test does not
+      depend on a later phase.
+- [x] **0.3.1** Create `tests/` at the template repository root (not inside
+      `{{cookiecutter.project_slug}}/`) with `test_template.py` and fixtures
+      `tests/fixtures/minimal.yaml`, `no-db.yaml`, `no-redis.yaml`,
+      `no-asynq.yaml`, `no-worker.yaml`, `no-swagger.yaml`, `no-sentry.yaml`
+      and `full.yaml`.
+- [x] **0.3.2** Add a root `Makefile` with `COOKIECUTTER_VERSION` and
       `test-template: uvx --with pytest --with pyyaml --with pexpect pytest -q
       tests/`.
-- [x] **0.3.3** La prueba debe generar cada fixture con `uvx cookiecutter`,
-      localizar el directorio generado y ejecutar sobre él:
-      `go mod download`, `go mod tidy -diff`, `go build ./...`,
-      `go vet ./...`, `go test ./...`, `golangci-lint run` y
-      `govulncheck ./...`.
-- [x] **0.3.4** Ejecutar `go test ./...` sin servicios externos por defecto; los
-      tests de integración van detrás de un build tag (ver 0.4.6).
-- [x] **0.3.5** Comprobar que los archivos condicionales existen o no según los
+- [x] **0.3.3** The test must generate each fixture with `uvx cookiecutter`,
+      locate the generated directory and run against it: `go mod download`,
+      `go mod tidy -diff`, `go build ./...`, `go vet ./...`, `go test ./...`,
+      `golangci-lint run` and `govulncheck ./...`.
+- [x] **0.3.4** Run `go test ./...` without external services by default;
+      integration tests go behind a build tag (see 0.4.6).
+- [x] **0.3.5** Check that conditional files exist or not according to the
       flags (`DB`, `Redis`, `Asynq`, `Worker`, `Swagger`, `pprof`, `Sentry`).
-- [x] **0.3.6** Añadir pruebas negativas de `pre_gen_project.py`: slugs y
-      módulos inválidos deben fallar con un mensaje claro.
-- [x] **0.3.7** Añadir un smoke test de arranque cuando el fixture requiera
-      DB/Redis: `compose up`, esperar healthchecks, comprobar `/healthz` y
-      apagar. Debe hacer `skip` si Docker no está disponible.
-- [x] **0.3.8** Añadir una CI mínima desde esta fase (ver Fase 4 para la CI
-      completa): instalar Go y `astral-sh/setup-uv`, cachear `UV_CACHE_DIR` y
-      `GOMODCACHE`, instalar las herramientas fijadas y ejecutar
+- [x] **0.3.6** Add negative tests for `pre_gen_project.py`: invalid slugs and
+      modules must fail with a clear message.
+- [x] **0.3.7** Add a startup smoke test when the fixture requires DB/Redis:
+      `compose up`, wait for healthchecks, check `/healthz` and tear down. It
+      must `skip` when Docker is unavailable.
+- [x] **0.3.8** Add minimal CI from this phase on (see Phase 4 for the full
+      CI): install Go and `astral-sh/setup-uv`, cache `UV_CACHE_DIR` and
+      `GOMODCACHE`, install the pinned tools and run
       `uvx --with pytest --with pyyaml --with pexpect pytest -q tests/`.
-- [x] **0.3.9** Documentar el arnés en el README raíz, incluyendo que la
-      generación de pruebas usa `uvx`.
+- [x] **0.3.9** Document the harness in the root README, including that trial
+      generations use `uvx`.
 
-### 0.4 Estrategia de test del proyecto generado
+### 0.4 Testing strategy for the generated project
 
-#### Dependencias
+#### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 0.4.1 | — | 0.4.7 | README con la pirámide de tests |
-| 0.4.2 | 0.4.7 | 0.4.3, 0.4.6, 0.4.8, 2.20 | `go test ./...` unitario |
-| 0.4.3 | 0.4.2 | 0.4.6 | tests de handler con `httptest` |
-| 0.4.4 | 0.4.2 | 0.4.6 | tests de servicio con fakes |
-| 0.4.5 | 0.4.7 | 0.4.6 | integración con `t.Skip` |
-| 0.4.6 | 0.4.2–0.4.5 | 0.3.4, 0.4.8, 0.4.9, 0.4.10 | tag `integration` |
-| 0.4.7 | 0.4.1 | 0.4.2, 0.4.5 | helpers en `internal/testutil` |
-| 0.4.8 | 0.4.6 | 4.1, 4.4 | targets `test*` |
-| 0.4.9 | 0.4.6 | 4.4, 4.5 | CI del proyecto generado |
-| 0.4.10 | 0.4.6 | 2.20, 4.4 | separación unit/integration |
+| 0.4.1 | — | 0.4.7 | README with the test pyramid |
+| 0.4.2 | 0.4.7 | 0.4.3, 0.4.6, 0.4.8, 2.20 | unit `go test ./...` |
+| 0.4.3 | 0.4.2 | 0.4.6 | handler tests with `httptest` |
+| 0.4.4 | 0.4.2 | 0.4.6 | service tests with fakes |
+| 0.4.5 | 0.4.7 | 0.4.6 | integration with `t.Skip` |
+| 0.4.6 | 0.4.2–0.4.5 | 0.3.4, 0.4.8, 0.4.9, 0.4.10 | `integration` tag |
+| 0.4.7 | 0.4.1 | 0.4.2, 0.4.5 | helpers in `internal/testutil` |
+| 0.4.8 | 0.4.6 | 4.1, 4.4 | `test*` targets |
+| 0.4.9 | 0.4.6 | 4.4, 4.5 | generated project CI |
+| 0.4.10 | 0.4.6 | 2.20, 4.4 | unit/integration split |
 
 #### Checklist
 
-- [x] **0.4.1** Definir en el README del proyecto generado la pirámide de tests
-      y los comandos para ejecutarla.
-- [x] **0.4.2** Unitarios puros (sin DB/Redis): filtros, paginación, JWT,
-      validación de configuración y converters. Tabla de casos, `t.Parallel()`
-      y `go test -race`.
-- [x] **0.4.3** Handlers con `httptest` + `gin.TestMode`, verificando códigos,
-      body y errores.
-- [x] **0.4.4** Servicios con fakes de las interfaces de repositorio ya
-      existentes.
-- [x] **0.4.5** Repositorios solo en integración, con `testcontainers-go` o
-      `compose`: esquema/DB aislado por test, `t.Cleanup` y `t.Skip` si Docker
-      no está.
-- [x] **0.4.6** Aislar la integración con build tag `integration` para que
-      `go test ./...` pase sin servicios externos.
-- [x] **0.4.7** Crear helpers en `internal/testutil` (fixtures, configuración
-      inyectada, factories) y evitar depender de `devhost` o de estado global.
-- [x] **0.4.8** Añadir targets `test`, `test-unit`, `test-integration` y
-      `coverage` al Makefile generado.
-- [x] **0.4.9** Incluir un workflow de CI en el proyecto generado con
-      `go test -race ./...`, cobertura y el job de integración.
-- [x] **0.4.10** Sustituir el `test-resetdb` actual (que exige DB y Atlas para
-      cualquier test) por una separación explícita unit/integration.
+- [x] **0.4.1** Define the test pyramid and the commands to run it in the
+      generated project's README.
+- [x] **0.4.2** Pure unit tests (no DB/Redis): filters, pagination, JWT,
+      config validation and converters. Case tables, `t.Parallel()` and
+      `go test -race`.
+- [x] **0.4.3** Handlers with `httptest` + `gin.TestMode`, verifying codes,
+      body and errors.
+- [x] **0.4.4** Services with fakes of the already existing repository
+      interfaces.
+- [x] **0.4.5** Repositories only in integration, with `testcontainers-go` or
+      `compose`: schema/DB isolated per test, `t.Cleanup` and `t.Skip` when
+      Docker is unavailable.
+- [x] **0.4.6** Isolate integration with the `integration` build tag so
+      `go test ./...` passes without external services.
+- [x] **0.4.7** Create helpers in `internal/testutil` (fixtures, injected
+      config, factories) and avoid depending on `devhost` or global state.
+- [x] **0.4.8** Add `test`, `test-unit`, `test-integration` and `coverage`
+      targets to the generated Makefile.
+- [x] **0.4.9** Include a CI workflow in the generated project with
+      `go test -race ./...`, coverage and the integration job.
+- [x] **0.4.10** Replace the current `test-resetdb` (which demands DB and Atlas
+      for any test) with an explicit unit/integration split.
 
-Criterio de aceptación de la Fase 0: `make test-template` genera todos los
-fixtures; cada proyecto compila, pasa `go vet`, `go test` sin servicios
-externos, pasa `golangci-lint` y `govulncheck`, y arranca con Postgres/Redis
-(según sus flags) superando el smoke test de `/healthz`.
+Phase 0 acceptance criteria: `make test-template` generates all fixtures; each
+project builds, passes `go vet`, passes `go test` without external services,
+passes `golangci-lint` and `govulncheck`, and starts with Postgres/Redis
+(depending on its flags) passing the `/healthz` smoke test.
 
-#### Evidencia Fase 0
+#### Phase 0 evidence
 
-- `make test-template`: 42 pasados, 9 saltados (herramientas ausentes y
-  `compose.yaml` en `minimal`) en 61 s.
-- Arnés con `golangci-lint` y `govulncheck` instalados: 42 pasados, 1 saltado,
-  8 `xfail`. `golangci-lint` está limpio en los 8 fixtures. `govulncheck`
-  detecta vulnerabilidades de dependencias antiguas y del stdlib local; queda
-  como `xfail` documentado hasta la Fase 1 (`REQUIRE_GOVULNCHECK=1` lo hace
-  bloqueante).
-- Smoke test `full`: Postgres y Redis de `compose.yaml`, API en `/healthz`,
-  `docker compose down -v` en `finally`.
-- Generación de modelo con `inv`: `HarnessModel` produce modelo, repositorio y
-  servicio, y el proyecto sigue compilando.
-- No se pudo ejecutar el workflow remoto de GitHub Actions desde este entorno;
-  el YAML del arnés y el generado se validan con PyYAML en los tests.
+- `make test-template`: 42 passed, 9 skipped (missing tools and `compose.yaml`
+  in `minimal`) in 61 s.
+- Harness with `golangci-lint` and `govulncheck` installed: 42 passed, 1
+  skipped, 8 `xfail`. `golangci-lint` is clean across all 8 fixtures.
+  `govulncheck` flags vulnerabilities from old dependencies and the local
+  stdlib; left as a documented `xfail` until Phase 1 (`REQUIRE_GOVULNCHECK=1`
+  makes it blocking).
+- `full` smoke test: Postgres and Redis from `compose.yaml`, API up at
+  `/healthz`, `docker compose down -v` in `finally`.
+- Model generation with `inv`: `HarnessModel` produces model, repository and
+  service, and the project keeps building.
+- The remote GitHub Actions workflow could not be run from this environment;
+  the harness and generated YAML are validated with PyYAML in the tests.
 
-## Fase 1 — Actualización
+## Phase 1 — Upgrade
 
-### Dependencias
+### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 1.1 | 0.1.17 | 1.2 | `go build ./...` con Go 1.27 |
+| 1.1 | 0.1.17 | 1.2 | `go build ./...` with Go 1.27 |
 | 1.2 | 1.1 | 1.3, 5.7 | `go list -m -u all` |
 | 1.3 | 1.2 | 1.4, 1.6, 1.7 | `go mod tidy -diff` |
-| 1.4 | 1.3 | 1.5 | decisión de imagen final registrada |
+| 1.4 | 1.3 | 1.5 | final image decision recorded |
 | 1.5 | 1.4 | 1.7, 2.17 | `docker build` |
-| 1.6 | 1.3 | 1.7 | build de `tools/` |
-| 1.7 | 1.3, 1.5, 1.6 | 2.1 | build reproducible + `go mod tidy -diff` |
+| 1.6 | 1.3 | 1.7 | build of `tools/` |
+| 1.7 | 1.3, 1.5, 1.6 | 2.1 | reproducible build + `go mod tidy -diff` |
 
 ### Checklist
 
-- [x] **1.1** Subir `go` a 1.27 y la imagen base a `golang:1.27-alpine`
-      (pinneada por digest). Verificar disponibilidad antes de fijar la
-      versión; si no existe, usar la última estable y actualizar este plan.
-  - **Ejecutado:** `go 1.27.3`, `golang:1.27-alpine@sha256:b8c9b82a…`,
-    `alpine:3.22.7@sha256:2e0b81d6…`, CI raíz y CI generada alineadas.
-- [x] **1.2** Actualizar dependencias verificando cada salto con
-      `go list -m -u all` y `go get`; no fijar versiones a ciegas. Las
-      versiones de referencia iniciales son:
+- [x] **1.1** Bump `go` to 1.27 and the base image to `golang:1.27-alpine`
+      (pinned by digest). Verify availability before pinning the version; if
+      it does not exist, use the latest stable and update this plan.
+  - **Executed:** `go 1.27.3`, `golang:1.27-alpine@sha256:b8c9b82a…`,
+    `alpine:3.22.7@sha256:2e0b81d6…`, root CI and generated CI aligned.
+- [x] **1.2** Update dependencies, verifying every jump with
+      `go list -m -u all` and `go get`; do not pin versions blindly. Initial
+      reference versions:
   - `gin 1.10.0 → 1.12.0`
   - `gorm 1.25.12 → 1.31.2`, `driver/postgres 1.5.11 → 1.6.3`
   - `atlas-provider-gorm 0.5.0 → 0.6.1`
@@ -353,486 +350,490 @@ externos, pasa `golangci-lint` y `govulncheck`, y arranca con Postgres/Redis
   - `go-redis/v9 9.7.0 → 9.23.0`
   - `sentry-go 0.30.0 → 0.50.0`
   - `fx → 1.24.0`
-  - Además: `cors 1.7.9`, `pprof 1.5.6`, `validator/v10 10.30.5`,
+  - Also: `cors 1.7.9`, `pprof 1.5.6`, `validator/v10 10.30.5`,
     `gin-swagger 1.6.1`, `slog-multi 1.8.0`, `slog-sentry/v2 2.11.0`,
-    `urfave/cli/v2 2.27.7`, `x/crypto 0.58.0`, `decimal 1.6.0` y
+    `urfave/cli/v2 2.27.7`, `x/crypto 0.58.0`, `decimal 1.6.0` and
     `sentry-go/gin 0.50.0`.
-- [x] **1.3** Ejecutar `go mod tidy` y eliminar las dependencias indirectas que
-      ya no se usen (drivers MySQL/SQLServer/SQLite si se separa Atlas).
-  - **Ejecutado:** `go.sum` raíz y `tools/go.sum` regenerados desde el fixture
-    `full`; `go mod tidy -diff` limpio en ambos módulos.
-- [x] **1.4** Resolver la contradicción de imagen final: `distroless/static` no
-      tiene shell, así que no puede ejecutar `entrypoint.sh`. Elegir una
-      opción: mantener una base con shell, usar un binario Go de arranque, o
-      mover las migraciones a un servicio/job aparte y dejar `CMD` apuntando al
-      binario. Considerar `tini`/`dumb-init` como PID 1 si se mantiene un
-      entrypoint.
-  - **Decisión:** base con shell (`alpine:3.22.7` pinneada por digest) + `tini`
-    como PID 1 y `entrypoint.sh` con migración. Distroless se reevaluará en
-    2.17, cuando las migraciones pasen a un job separado.
-- [x] **1.5** Dockerfile multi-stage:
-  - usuario no-root;
-  - imagen final mínima y pinneada por digest;
+- [x] **1.3** Run `go mod tidy` and remove indirect dependencies no longer in
+      use (MySQL/SQLServer/SQLite drivers if Atlas is split out).
+  - **Executed:** root `go.sum` and `tools/go.sum` regenerated from the `full`
+    fixture; `go mod tidy -diff` clean in both modules.
+- [x] **1.4** Resolve the final-image contradiction: `distroless/static` has no
+      shell, so it cannot run `entrypoint.sh`. Choose one option: keep a base
+      with a shell, use a Go binary for startup, or move migrations to a
+      separate service/job and point `CMD` at the binary. Consider
+      `tini`/`dumb-init` as PID 1 if an entrypoint is kept.
+  - **Decision:** base with shell (`alpine:3.22.7` pinned by digest) + `tini`
+    as PID 1 and `entrypoint.sh` running the migration. Distroless will be
+    re-evaluated in 2.17, when migrations move to a separate job.
+- [x] **1.5** Multi-stage Dockerfile:
+  - non-root user;
+  - minimal final image, pinned by digest;
   - `-trimpath -ldflags="-s -w"`;
-  - `ARG TARGETARCH` en lugar de `GOARCH=amd64` fijo;
-  - Atlas pinneado con checksum;
-  - `HEALTHCHECK` y build multiarch con `buildx`.
-- [x] **1.6** Separar `cmd/atlas_loader` en `tools/go.mod` para no arrastrar
-      drivers MySQL/SQLServer/SQLite y actualizar `atlas.hcl` en consecuencia
-      (por ejemplo, `go -C tools run ./cmd/atlas_loader`). Añadir `go.work` si
-      conviven ambos módulos.
-  - **Decisión:** módulo anidado `{{ cookiecutter.go_module }}/tools` con
-    `replace` al módulo raíz y `go -C tools`; sin `go.work`. El hook elimina
-    `tools/cmd`, `tools/go.mod` y `tools/go.sum` cuando `use_db=no`.
-- [x] **1.7** Verificar `go mod tidy -diff` y que el build sea reproducible.
+  - `ARG TARGETARCH` instead of a fixed `GOARCH=amd64`;
+  - Atlas pinned with checksum;
+  - `HEALTHCHECK` and multiarch build with `buildx`.
+- [x] **1.6** Split `cmd/atlas_loader` into `tools/go.mod` so it does not drag
+      in the MySQL/SQLServer/SQLite drivers, and update `atlas.hcl`
+      accordingly (e.g. `go -C tools run ./cmd/atlas_loader`). Add `go.work`
+      if both modules coexist.
+  - **Decision:** nested module `{{ cookiecutter.go_module }}/tools` with a
+    `replace` to the root module and `go -C tools`; no `go.work`. The hook
+    removes `tools/cmd`, `tools/go.mod` and `tools/go.sum` when
+    `use_db=no`.
+- [x] **1.7** Verify `go mod tidy -diff` and that the build is reproducible.
 
-Criterio de aceptación: `go list -m -u all` sin actualizaciones relevantes,
-`go mod tidy -diff` limpio y build reproducible.
+Acceptance criteria: `go list -m -u all` with no relevant updates,
+`go mod tidy -diff` clean and reproducible build.
 
-#### Evidencia Fase 1
+#### Phase 1 evidence
 
-- `make test-template` con `REQUIRE_GOVULNCHECK=1`: **50 pasados, 1 saltado**
-  (smoke de `compose` en `minimal`). `golangci-lint v2.15.0` limpio en los 8
-  fixtures y `govulncheck` sin vulnerabilidades explotables.
-- `go mod tidy -diff` limpio en el módulo raíz y en `tools` para el fixture
-  `full`; `go -C tools build ./...` y `go -C tools vet ./...` limpios.
-- Build reproducible: dos compilaciones de `cmd/http` con
-  `-trimpath -buildvcs=false -ldflags="-s -w"` producen el mismo SHA-256
+- `make test-template` with `REQUIRE_GOVULNCHECK=1`: **50 passed, 1 skipped**
+  (`compose` smoke in `minimal`). `golangci-lint v2.15.0` clean across the 8
+  fixtures and `govulncheck` without exploitable vulnerabilities.
+- `go mod tidy -diff` clean in the root module and in `tools` for the `full`
+  fixture; `go -C tools build ./...` and `go -C tools vet ./...` clean.
+- Reproducible build: two builds of `cmd/http` with
+  `-trimpath -buildvcs=false -ldflags="-s -w"` produce the same SHA-256
   (`06acd74a…`).
-- `go -C tools run ./cmd/atlas_loader` genera el esquema SQL de `users`.
-- `docker build` del fixture `full` correcto en `linux/amd64` (Atlas 1.3.5
-  verificado por checksum). El build `linux/arm64` no se pudo ejecutar en local
-  por falta de emulación/binfmt; queda cubierto por la CI multiarch de la
-  Fase 4.
-- Se corrigió `pkg/pagination/pagination.go:63` (`Statement.DB` → `Statement`)
-  para mantener `golangci-lint` en verde con `gorm 1.31.2`.
-- Actualizaciones pendientes en `go list -m -u all`: solo indirectas
-  transitivas; todas las dependencias directas están en su última versión.
+- `go -C tools run ./cmd/atlas_loader` generates the SQL schema of `users`.
+- `docker build` of the `full` fixture succeeds on `linux/amd64` (Atlas 1.3.5
+  verified by checksum). The `linux/arm64` build could not run locally for
+  lack of emulation/binfmt; it is covered by the Phase 4 multiarch CI.
+- Fixed `pkg/pagination/pagination.go:63` (`Statement.DB` → `Statement`) to
+  keep `golangci-lint` green with `gorm 1.31.2`.
+- Pending updates in `go list -m -u all`: only transitive indirects; all direct
+  dependencies are at their latest version.
 
-## Fase 2 — Seguridad
+## Phase 2 — Security
 
-### Dependencias
+### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 2.1 | 0.1.17 | 2.2, 2.3, 2.20 | tests table-driven de filtros |
-| 2.2 | 2.1 | 2.20 | test de `uuid.Parse` con bytes inválidos |
-| 2.3 | 2.1 | 2.20 | test de filtro inválido con error |
-| 2.4 | 0.1.17 | 2.5, 2.20 | test de límites `page`/`size` |
-| 2.5 | 2.4 | 2.20 | test de error de `Find` propagado |
-| 2.6 | 0.1.8 | 2.16, 2.20 | tests de `alg`/Bearer/claims |
-| 2.7 | 0.1.17 | — | test de JSON sin `password` |
-| 2.8 | 0.1.17 | — | test de CORS por entorno |
-| 2.9 | 2.16 | — | test de features desactivadas en prod |
-| 2.10 | 0.1.17 | — | test de redacción de logs |
-| 2.11 | 0.1.17 | 2.13 | test de timeouts y límites de body |
-| 2.12 | 0.1.17 | — | test de cabeceras de seguridad |
-| 2.13 | 2.11 | — | test de rate limit (429) |
-| 2.14 | 0.1.5 | 3.1 | `grep` sin `log.Fatal` en librerías |
-| 2.15 | 0.1.17 | — | test de bcrypt/Argon2id |
-| 2.16 | 2.6 | 2.9, 2.20 | test de configuración inválida |
-| 2.17 | 1.5 | 2.18 | inspección de `CMD` sin migración |
-| 2.18 | 2.17 | — | smoke test de `entrypoint.sh` |
+| 2.1 | 0.1.17 | 2.2, 2.3, 2.20 | table-driven filter tests |
+| 2.2 | 2.1 | 2.20 | test of `uuid.Parse` with invalid bytes |
+| 2.3 | 2.1 | 2.20 | test of invalid filter with error |
+| 2.4 | 0.1.17 | 2.5, 2.20 | test of `page`/`size` limits |
+| 2.5 | 2.4 | 2.20 | test of propagated `Find` error |
+| 2.6 | 0.1.8 | 2.16, 2.20 | tests of `alg`/Bearer/claims |
+| 2.7 | 0.1.17 | — | test of JSON without `password` |
+| 2.8 | 0.1.17 | — | test of per-environment CORS |
+| 2.9 | 2.16 | — | test of features disabled in prod |
+| 2.10 | 0.1.17 | — | test of log redaction |
+| 2.11 | 0.1.17 | 2.13 | test of timeouts and body limits |
+| 2.12 | 0.1.17 | — | test of security headers |
+| 2.13 | 2.11 | — | rate-limit test (429) |
+| 2.14 | 0.1.5 | 3.1 | `grep` without `log.Fatal` in libraries |
+| 2.15 | 0.1.17 | — | test of bcrypt/Argon2id |
+| 2.16 | 2.6 | 2.9, 2.20 | test of invalid configuration |
+| 2.17 | 1.5 | 2.18 | inspection of `CMD` without migration |
+| 2.18 | 2.17 | — | smoke test of `entrypoint.sh` |
 | 2.19 | 0.3.8 | 4.5 | `govulncheck`/`gosec`/`gitleaks` |
-| 2.20 | 2.1–2.6, 0.4.2 | 3.7, 4.4 | `go test ./...` de seguridad |
+| 2.20 | 2.1–2.6, 0.4.2 | 3.7, 4.4 | security `go test ./...` |
 
 ### Checklist
 
-- [x] **2.1** Validar `order_type` (`asc|desc`), el `Op` de cada filtro y la
-      whitelist de columnas en `pkg/filters/filters.go:114`.
-- [x] **2.2** Usar `uuid.Parse` en `pkg/filters/filters.go:37` (hoy usa
-      `uuid.FromBytes` con bytes de longitud arbitraria).
-- [x] **2.3** Devolver error de validación en filtros en lugar de loguear y
-      omitir el filtro silenciosamente.
-- [x] **2.4** Aplicar límites de paginación: `page >= 1`, `size >= 1` y tamaño
-      máximo configurable (`maxSize`); rechazar valores negativos o gigantes.
-- [x] **2.5** Propagar el error de `Find` en `pkg/pagination/pagination.go:70`
-      en lugar de ignorarlo.
-- [x] **2.6** JWT: validar `alg` (`jwt.WithValidMethods`), exigir `Bearer`,
-      añadir `iat/iss/aud/jti`, expiración configurable y leeway.
-- [x] **2.7** `Password json:"-"` en `internal/core/models/user.go:12`.
-- [x] **2.8** Corregir CORS (`AllowOrigins: "*"` + `AllowCredentials: true`) en
-      `internal/server/router.go:31`; usar whitelist por entorno.
-- [x] **2.9** Desactivar por defecto Swagger, Asynqmon y pprof en producción;
-      credenciales de Asynqmon sin `dev/dev` y fallo al arrancar si están
-      vacías.
-- [x] **2.10** Pasar `RequestLogger` a `slog`, redactar
-      body/cookies/`password`/tokens y añadir `X-Request-ID`.
-- [x] **2.11** Añadir límites HTTP: `ReadHeaderTimeout`, `ReadTimeout`,
+- [x] **2.1** Validate `order_type` (`asc|desc`), each filter's `Op` and the
+      column whitelist at `pkg/filters/filters.go:114`.
+- [x] **2.2** Use `uuid.Parse` at `pkg/filters/filters.go:37` (it currently
+      uses `uuid.FromBytes` with bytes of arbitrary length).
+- [x] **2.3** Return a validation error from filters instead of logging and
+      silently dropping the filter.
+- [x] **2.4** Apply pagination limits: `page >= 1`, `size >= 1` and a
+      configurable maximum size (`maxSize`); reject negative or huge values.
+- [x] **2.5** Propagate the `Find` error at
+      `pkg/pagination/pagination.go:70` instead of ignoring it.
+- [x] **2.6** JWT: validate `alg` (`jwt.WithValidMethods`), require `Bearer`,
+      add `iat/iss/aud/jti`, configurable expiration and leeway.
+- [x] **2.7** `Password json:"-"` at `internal/core/models/user.go:12`.
+- [x] **2.8** Fix CORS (`AllowOrigins: "*"` + `AllowCredentials: true`) at
+      `internal/server/router.go:31`; use a per-environment whitelist.
+- [x] **2.9** Disable Swagger, Asynqmon and pprof by default in production;
+      Asynqmon credentials without `dev/dev` and fail startup if empty.
+- [x] **2.10** Move `RequestLogger` to `slog`, redact
+      body/cookies/`password`/tokens and add `X-Request-ID`.
+- [x] **2.11** Add HTTP limits: `ReadHeaderTimeout`, `ReadTimeout`,
       `WriteTimeout`, `IdleTimeout`, `MaxHeaderBytes`, `http.MaxBytesReader`,
-      límite de body multipart y `TrustedProxies` explícitos.
-- [x] **2.12** Añadir cabeceras de seguridad y flags seguros de cookies si se
-      añaden sesiones.
-- [x] **2.13** Añadir rate limit en login/endpoints sensibles.
-- [x] **2.14** Quitar `log.Fatal` de librerías (`pkg/converter`, `configs/*`);
-      devolver errores y fallar en `main`.
-- [x] **2.15** Deprecar MD5 en `pkg/cryptography/hash.go` y usar
-      bcrypt/Argon2id para contraseñas. *(decisión 4: `HashMD5` se eliminó y
-      `HashSHA256` pasa a devolver hex; las contraseñas siguen en bcrypt)*.
-- [x] **2.16** Validar configuración obligatoria al arrancar (`JWT_SECRET` con
-      longitud mínima, credenciales de DB/Redis, `BASIC_AUTH_*` si Asynqmon
-      está activo).
-- [x] **2.17** No migrar automáticamente en cada arranque: job/flag separado,
-      sin `atlas migrate apply` en el `CMD` principal.
-- [x] **2.18** Añadir `sslmode` a `DATABASE_URL` en `entrypoint.sh`, escapar
-      credenciales con `url.URL` y usar `set -eu`. *(decisión 2: la URL se
-      construye en `cmd/migrate` con `net/url`, `entrypoint.sh` queda en
+      a multipart body limit and explicit `TrustedProxies`.
+- [x] **2.12** Add security headers, and secure cookie flags if sessions are
+      added.
+- [x] **2.13** Add rate limiting to login/sensitive endpoints.
+- [x] **2.14** Remove `log.Fatal` from libraries (`pkg/converter`,
+      `configs/*`); return errors and fail in `main`.
+- [x] **2.15** Deprecate MD5 in `pkg/cryptography/hash.go` and use
+      bcrypt/Argon2id for passwords. *(decision 4: `HashMD5` was removed and
+      `HashSHA256` now returns hex; passwords remain bcrypt)*.
+- [x] **2.16** Validate required configuration at startup (`JWT_SECRET` with a
+      minimum length, DB/Redis credentials, `BASIC_AUTH_*` if Asynqmon is
+      enabled).
+- [x] **2.17** Do not migrate automatically on every startup: separate
+      job/flag, no `atlas migrate apply` in the main `CMD`.
+- [x] **2.18** Add `sslmode` to `DATABASE_URL` in `entrypoint.sh`, escape
+      credentials with `url.URL` and use `set -eu`. *(decision 2: the URL is
+      built in `cmd/migrate` with `net/url`, and `entrypoint.sh` ends up as
       `set -eu` + `exec "$@"`)*.
-- [x] **2.19** Añadir `govulncheck`, `gosec`, `trivy` y escaneo de secretos
-      (`gitleaks`) a la CI, fijados por versión y publicando SARIF cuando sea
-      posible.
-- [x] **2.20** Añadir tests para filtros, paginación, JWT y validación de
-      configuración, siguiendo la estrategia de 0.4.
+- [x] **2.19** Add `govulncheck`, `gosec`, `trivy` and secret scanning
+      (`gitleaks`) to CI, pinned by version and publishing SARIF where
+      possible.
+- [x] **2.20** Add tests for filters, pagination, JWT and config validation,
+      following the strategy from 0.4.
 
-Criterio de aceptación: revisión de seguridad sin hallazgos críticos,
-`govulncheck`/`gosec`/`gitleaks` en verde y tests de filtros/JWT/paginación.
+Acceptance criteria: security review with no critical findings,
+`govulncheck`/`gosec`/`gitleaks` green and tests for filters/JWT/pagination.
 
-#### Evidencia Fase 2
+#### Phase 2 evidence
 
 - `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template`: **60
-  pasados, 1 saltado** (smoke de `compose` en `minimal`). La matriz de los 8
-  fixtures compila, hace `go vet`, `go test ./...`, `golangci-lint v2.15.0` y
-  `govulncheck` limpios.
-- `gosec` (v2.30.0) en verde sobre el fixture `full`. La única señal real
-  (G204 en `cmd/migrate`) se resolvió con `#nosec` justificado: el argv es
-  fijo y `dsn` se construye con `net/url`, sin shell de por medio. La versión
-  fijada antes (v2.22.9) no soporta el toolchain de Go 1.27.3.
-- `gitleaks` (v8.28.0) con `.gitleaks.toml`: 0 fugas sobre la plantilla y
-  sobre el proyecto generado. Verificado que la configuración sigue
-  detectando un token plantado, es decir, que el allowlist no apaga la
-  herramienta.
-- `trivy` (v0.76.1): 0 secretos en la plantilla y en el generado. El escaneo
-  de vulnerabilidades queda informativo (`--exit-code 0`) porque marca CVEs a
-  nivel de módulo que `govulncheck`, por grafo de llamadas, considera no
-  alcanzables; ambos publican SARIF en la CI.
-- Corrección de generación: cookiecutter **sí** renderiza
-  `{{cookiecutter.project_slug}}/.github/workflows/ci.yml`, por lo que las
-  expresiones de GitHub Actions van envueltas en `{% raw %}`; sin eso la
-  generación fallaba con `'github' is undefined`. El `.github/workflows/ci.yml`
-  de la raíz no forma parte del template y no se renderiza.
-- `configs.Validate()` ya no lee el global `Env` al validar una copia del
-  valor (`splitOrigins`), lo que permitía que una validación con CORS en
-  `prod` pasara en silencio.
-- `RequestLogger` solo amortigua el body cuando `ENABLE_LOG_REQUEST_DETAIL=true`;
-  con el flag apagado deja `http.MaxBytesReader` intacto en vez de
-  neutralizarlo.
-- `HashMD5` se eliminó (decisión 4) y `HashSHA256` ahora devuelve hex.
-- Nuevos tests: `internal/middlewares/{security,request_logger,ratelimit,jwt_auth}_test.go`,
+  passed, 1 skipped** (`compose` smoke in `minimal`). The 8-fixture matrix
+  builds, runs `go vet`, `go test ./...`, `golangci-lint v2.15.0` and
+  `govulncheck` cleanly.
+- `gosec` (v2.30.0) green on the `full` fixture. The only real signal (G204 in
+  `cmd/migrate`) was resolved with a justified `#nosec`: argv is fixed and
+  `dsn` is built with `net/url`, with no shell involved. The previously pinned
+  version (v2.22.9) does not support the Go 1.27.3 toolchain.
+- `gitleaks` (v8.28.0) with `.gitleaks.toml`: 0 leaks on the template and on
+  the generated project. Verified that the configuration still detects a
+  planted token, i.e. the allowlist does not disable the tool.
+- `trivy` (v0.76.1): 0 secrets in the template and the generated project.
+  Vulnerability scanning stays informational (`--exit-code 0`) because it
+  flags module-level CVEs that `govulncheck`, via the call graph, deems
+  unreachable; both publish SARIF in CI.
+- Generation fix: cookiecutter **does** render
+  `{{cookiecutter.project_slug}}/.github/workflows/ci.yml`, so GitHub Actions
+  expressions must be wrapped in `{% raw %}`; without that, generation failed
+  with `'github' is undefined`. The root `.github/workflows/ci.yml` is not
+  part of the template and is not rendered.
+- `configs.Validate()` no longer reads the global `Env` when validating a copy
+  of the value (`splitOrigins`), which allowed a CORS validation with `prod`
+  to pass silently.
+- `RequestLogger` only buffers the body when
+  `ENABLE_LOG_REQUEST_DETAIL=true`; with the flag off it leaves
+  `http.MaxBytesReader` intact instead of neutralizing it.
+- `HashMD5` was removed (decision 4) and `HashSHA256` now returns hex.
+- New tests: `internal/middlewares/{security,request_logger,ratelimit,jwt_auth}_test.go`,
   `internal/server/{router,server}_test.go`, `pkg/cryptography/hash_test.go`,
   `internal/core/models/user_test.go`, `cmd/migrate/main_test.go`,
-  `configs/prod_env_test.go`, más las ampliaciones de `filters`, `pagination`,
-  `auth` y `configs`.
-- Arnés: `test_generated_security_hardening` (CMD sin migración, smoke real
-  de `entrypoint.sh`, job `security` en la CI, prod sin flags expuestos, sin
-  `log.Fatal` en `pkg/`+`configs/`+`internal/`, `Password json:"-"`),
-  `test_generated_project_gosec` y `test_generated_project_gitleaks`.
-- README: nueva sección «Seguridad», `cmd/migrate` en la estructura y
+  `configs/prod_env_test.go`, plus the extensions to `filters`, `pagination`,
+  `auth` and `configs`.
+- Harness: `test_generated_security_hardening` (CMD without migration, real
+  smoke of `entrypoint.sh`, `security` job in CI, prod without exposed flags,
+  no `log.Fatal` in `pkg/`+`configs/`+`internal/`, `Password json:"-"`),
+  `test_generated_project_gosec` and `test_generated_project_gitleaks`.
+- README: new "Security" section, `cmd/migrate` in the structure and
   `make security`.
 
-## Fase 3 — Arquitectura
+## Phase 3 — Architecture
 
-### Dependencias
+### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 3.1 | 0.1.4, 0.1.5, 1.2 | 3.2–3.8 | arranque http/worker con fx |
-| 3.2 | 3.1 | — | `grep` sin `GetDB`/`GetRedis`/`GetLogger` |
-| 3.3 | 3.1 | 3.7 | test de configuración desde otro cwd |
-| 3.4 | 3.1 | — | test de `User` con `uuid.UUID` |
-| 3.5 | 3.1 | — | test de shutdown con SIGTERM |
-| 3.6 | 3.1 | — | test de error de `ListenAndServe` |
-| 3.7 | 3.1, 2.6 | — | test del flujo `user` con `JwtAuth` |
-| 3.8 | 3.1, 0.3.0 | 4.5 | `curl /healthz` y `/readyz` |
+| 3.1 | 0.1.4, 0.1.5, 1.2 | 3.2–3.8 | http/worker startup with fx |
+| 3.2 | 3.1 | — | `grep` without `GetDB`/`GetRedis`/`GetLogger` |
+| 3.3 | 3.1 | 3.7 | test of config from another cwd |
+| 3.4 | 3.1 | — | test of `User` with `uuid.UUID` |
+| 3.5 | 3.1 | — | shutdown test with SIGTERM |
+| 3.6 | 3.1 | — | test of `ListenAndServe` error |
+| 3.7 | 3.1, 2.6 | — | test of the `user` flow with `JwtAuth` |
+| 3.8 | 3.1, 0.3.0 | 4.5 | `curl /healthz` and `/readyz` |
 
 ### Checklist
 
-- [x] **3.1** Migrar `DB`, `Redis`, `Asynq` y `Logger` de singletons globales a
-      providers de fx con `fx.Hook` para cierre, tanto en `cmd/http` como en
-      `cmd/worker`. *(decisión 1: se mantiene Viper con una instancia aislada
-      `viper.New()` + `BindEnv` en lugar de Koanf; decisión 2: `*configs.Config`
-      se inyecta completo, sin getters)*.
-- [x] **3.2** Eliminar los `GetDB/GetRedis/GetLogger/GetAsynqClient` globales y
-      sus `log.Fatal`. *(`configs/hooks.go` desaparece: `NewConfig`,
-      `NewLogger`, `NewDB`, `NewRedis` y `NewAsynqClient` devuelven valores)*.
-- [x] **3.3** Sustituir la carga de env basada en `runtime.Caller` por
-      configuración portable (koanf/envconfig o `viper.BindEnv`) que funcione
-      desde cualquier directorio y en tests. *(`Load(LoadOptions)` con
-      `ENV_FILE`/`ENV_DIR` y búsqueda ascendente de `env/<stage>.env` desde el
-      cwd y desde el binario; sin `init()` ni globals)*.
-- [x] **3.4** Unificar el tipo de PK: `User` debe usar `uuid.UUID` como el
-      repositorio/VO. *(decisión 3: además se incluye la migración inicial
-      `migrations/20261024000000_users.sql` con su `atlas.sum`)*.
-- [x] **3.5** Worker: concurrencia configurable y shutdown graceful ante
-      SIGTERM. *(decisión 4: `WORKER_CONCURRENCY=10` por defecto, expuesto en
-      `env/*.env`; `OnStop` drena las tareas y respeta el `ctx` de fx)*.
-- [x] **3.6** Corregir `server.Run` para propagar errores de `ListenAndServe` y
-      apagarse limpiamente. *(`Server.Start` reserva el puerto antes de arrancar,
-      `Serve` normaliza `http.ErrServerClosed` y `Shutdown` cierra con
-      contexto; el fallo de `Serve` para la aplicación con código ≠0)*.
-- [x] **3.7** Completar el flujo de ejemplo (bind, validación, servicio,
-      errores) en `user_controller.go` y registrar `JwtAuth`. *(`POST /signup`,
-      `POST /login` y `GET /me`, con `Leeway` y rechazo de `uuid.Nil`)*.
-- [x] **3.8** Añadir health/readiness con comprobación real de DB y Redis.
-      *(`GET /healthz` de liveness y `GET /readyz` con comprobaciones
-      condicionales y timeout de 2 s)*.
+- [x] **3.1** Move `DB`, `Redis`, `Asynq` and `Logger` from global singletons
+      to fx providers with `fx.Hook` for shutdown, in both `cmd/http` and
+      `cmd/worker`. *(decision 1: Viper stays, with an isolated
+      `viper.New()` + `BindEnv` instance instead of Koanf; decision 2:
+      `*configs.Config` is injected whole, no getters)*.
+- [x] **3.2** Remove the `GetDB/GetRedis/GetLogger/GetAsynqClient` globals and
+      their `log.Fatal`s. *(`configs/hooks.go` disappears: `NewConfig`,
+      `NewLogger`, `NewDB`, `NewRedis` and `NewAsynqClient` return values)*.
+- [x] **3.3** Replace the `runtime.Caller`-based env loading with portable
+      configuration (koanf/envconfig or `viper.BindEnv`) that works from any
+      directory and in tests. *(`Load(LoadOptions)` with `ENV_FILE`/`ENV_DIR`
+      and upward search for `env/<stage>.env` from the cwd and from the
+      binary; no `init()` or globals)*.
+- [x] **3.4** Unify the PK type: `User` must use `uuid.UUID` like the
+      repository/VO. *(decision 3: the initial migration
+      `migrations/20261024000000_users.sql` with its `atlas.sum` is also
+      included)*.
+- [x] **3.5** Worker: configurable concurrency and graceful shutdown on
+      SIGTERM. *(decision 4: `WORKER_CONCURRENCY=10` by default, exposed in
+      `env/*.env`; `OnStop` drains tasks and respects the fx `ctx`)*.
+- [x] **3.6** Fix `server.Run` to propagate `ListenAndServe` errors and shut
+      down cleanly. *(`Server.Start` binds the port before starting, `Serve`
+      normalizes `http.ErrServerClosed`, and `Shutdown` closes with context; a
+      `Serve` failure stops the application with code ≠0)*.
+- [x] **3.7** Complete the example flow (bind, validation, service, errors) in
+      `user_controller.go` and register `JwtAuth`. *(`POST /signup`,
+      `POST /login` and `GET /me`, with `Leeway` and rejection of
+      `uuid.Nil`)*.
+- [x] **3.8** Add health/readiness with real DB and Redis checks.
+      *(`GET /healthz` for liveness and `GET /readyz` with conditional checks
+      and a 2 s timeout)*.
 
-Criterio de aceptación: sin estado global mutable, testeable, sin `log.Fatal`
-en librerías y con apagado limpio.
+Acceptance criteria: no mutable global state, testable, no `log.Fatal` in
+libraries, and clean shutdown.
 
-#### Evidencia Fase 3
+#### Phase 3 evidence
 
-- `make test-template`: **68 pasados, 1 saltado** (el smoke de `compose config`
-  se salta porque el provider local es `podman-compose`). La matriz de los 8
-  fixtures pasa `go build ./...`, `go vet ./...`, `go test ./...`,
-  `golangci-lint`, `govulncheck` y `gosec` sin hallazgos.
+- `make test-template`: **68 passed, 1 skipped** (the `compose config` smoke
+  skips because the local provider is `podman-compose`). The 8-fixture matrix
+  passes `go build ./...`, `go vet ./...`, `go test ./...`, `golangci-lint`,
+  `govulncheck` and `gosec` with no findings.
 - **3.1/3.2**: `configs/env.go`, `logging.go`, `client_db.go`,
-  `client_redis.go` y `client_asynq.go` pasan a `NewX(cfg)` +
-  `ProvideX(lc, ...)`; `configs/hooks.go` (con `Bootstrap`, `MustBootstrap`,
-  `Shutdown` y `GetDB`) se eliminó. `cmd/http` registra `Start` en `OnStart`
-  (el bind ocupa el puerto antes de reportar arranque), `Serve` en una goroutine
-  que para la app con código ≠0 y `Shutdown` en `OnStop`; `gin.SetMode` vive en
-  `NewRouter`, que ahora devuelve `(*gin.Engine, error)`.
-- **3.3**: `Load(LoadOptions)` lee `ENV_FILE`/`ENV_DIR` o busca
-  `env/<stage>.env` hacia arriba desde el cwd y desde el binario, usa una
-  instancia aislada de Viper con `SetDefault`+`BindEnv` por reflexión y no
-  toca estado del paquete. 7 tests nuevos cubren cwd ajeno, override de
-  variable, `ENV_FILE` explícito, archivo ausente y stage inválido.
-- **3.4**: `User.ID` es `uuid.UUID` (`default:gen_random_uuid()`), el VO usa la
-  misma clave y hay test con `reflect` sobre el tipo y las tags. La migración
-  inicial se generó desde un `AutoMigrate` real contra Postgres 16 (se vertió
-  el DDL con `pg_dump`) y se validó aplicándola con
-  `arigaio/atlas:1.3.5-alpine`; su `atlas.sum` se calculó con
-  `migrate hash`. `compose.yaml` añade el volumen `pgdata` porque con
-  `podman-compose` el `compose run` recrea el proyecto y perdía los datos.
-- **3.5**: `WORKER_CONCURRENCY` está en `env/{dev,testing,prod,_template}.env`,
-  se valida en `Validate()` y se aplica en `asynq.Config.Concurrency`;
-  `runWorker` drena con `srv.Shutdown()` en una goroutine y devuelve `ctx.Err()`
-  si fx agota su timeout. `cmd/worker/main_test.go` cubre el registro de
-  handlers, el arranque y el apagado acotado por el `ctx` (con Redis disponible
-  recorre el ciclo completo; sin él solo verifica el registro). La señal la
-  cubre el smoke: `SIGTERM` ⇒ código 0.
-- **3.6**: `Server` con `Start`/`Serve`/`Shutdown`/`Addr`, timeouts completos y
-  tests de puerto ocupado y de apagado (`Serve` devuelve `nil` tras un
-  `Shutdown` limpio).
-- **3.7**: `POST /signup`, `POST /login` y `GET /me` con `JwtAuth`; tests de
-  servicio (hash bcrypt, credenciales, usuario inexistente, email duplicado) y
-  de controlador (400 con detalle, 201 sin filtrar contraseña, flujo completo
-  con token, 401 sin/ con token inválido).
-- **3.8**: `/healthz` y `/readyz` registrados en `NewRouter` (exentos de CORS,
-  rate limit y log de acceso); `Readiness` añade `db` y `redis` según los
-  flags, con timeout de 2 s y respuesta `503` nombrando la dependencia caída.
-  `health_test.go` cubre el caso sin dependencias, el fallo y el timeout.
-- Arnés nuevo: `test_generated_project_architecture` verifica que ningún `.go`
-  contiene `configs.Env`, `configs.GetDB/GetRedis/GetLogger/GetAsynqClient`,
-  `MustBootstrap` ni `runtime.Caller`, que todos los `env/*.env` definen
-  `WORKER_CONCURRENCY`, que el worker usa `cfg.WorkerConcurrency` y que el
-  router publica `/healthz` y `/readyz`. El smoke ampliado aplica la migración
-  antes de arrancar y comprueba `/readyz`, el flujo `signup → login → me` y la
-  salida 0 tras `SIGTERM`.
-- Correcciones derivadas: `configs/client_redis.go` se conserva con
-  `use_asynq=yes` (sin Redis no hay readiness ni cliente de cola) y
-  `post_gen_project.py` + `test_generated_project_conditional_files` reflejan
-  esa regla; dos `#nosec` justificados (`G703` en `os.Stat` de la búsqueda del
-  env y `G102` en el bind `:<puerto>` del servidor).
-- Generadores: `repository.j2` y `service.j2` ya no usan `configs.GetDB` ni
-  construyen dependencias internamente, siguen el patrón de
-  `NewUserRepository(db)`/`NewUserService(repo)` y el proyecto sigue compilando
-  tras `inv gen-model`.
-- README: secciones «Arquitectura» y endpoints (`/healthz`, `/readyz` y el flujo
-  JWT cuando hay base de datos), `WORKER_CONCURRENCY` en configuración y
-  corrección de `configs.Bootstrap()` por `configs.NewConfig()` en la raíz.
+  `client_redis.go` and `client_asynq.go` move to `NewX(cfg)` +
+  `ProvideX(lc, ...)`; `configs/hooks.go` (with `Bootstrap`, `MustBootstrap`,
+  `Shutdown` and `GetDB`) was removed. `cmd/http` registers `Start` in
+  `OnStart` (the bind occupies the port before reporting startup), `Serve` in
+  a goroutine that stops the app with code ≠0, and `Shutdown` in `OnStop`;
+  `gin.SetMode` lives in `NewRouter`, which now returns
+  `(*gin.Engine, error)`.
+- **3.3**: `Load(LoadOptions)` reads `ENV_FILE`/`ENV_DIR` or searches for
+  `env/<stage>.env upward from the cwd and from the binary, uses an isolated
+  Viper instance with `SetDefault`+`BindEnv` via reflection, and does not
+  touch package state. 7 new tests cover a foreign cwd, variable override,
+  explicit `ENV_FILE`, missing file and invalid stage.
+- **3.4**: `User.ID` is `uuid.UUID` (`default:gen_random_uuid()`), the VO uses
+  the same key and there is a test with `reflect` over the type and tags. The
+  initial migration was generated from a real `AutoMigrate` against Postgres
+  16 (the DDL was dumped with `pg_dump`) and validated by applying it with
+  `arigaio/atlas:1.3.5-alpine`; its `atlas.sum` was computed with
+  `migrate hash`. `compose.yaml` adds the `pgdata` volume because with
+  `podman-compose` the `compose run` recreates the project and lost data.
+- **3.5**: `WORKER_CONCURRENCY` is in `env/{dev,testing,prod,_template}.env`,
+  validated in `Validate()` and applied to `asynq.Config.Concurrency`;
+  `runWorker` drains with `srv.Shutdown()` in a goroutine and returns
+  `ctx.Err()` if fx times out. `cmd/worker/main_test.go` covers handler
+  registration, startup and shutdown bounded by the `ctx` (with Redis
+  available it runs the full cycle; without it, it only checks
+  registration). The signal is covered by the smoke: `SIGTERM` ⇒ exit 0.
+- **3.6**: `Server` with `Start`/`Serve`/`Shutdown`/`Addr`, full timeouts and
+  tests for a busy port and for shutdown (`Serve` returns `nil` after a clean
+  `Shutdown`).
+- **3.7**: `POST /signup`, `POST /login` and `GET /me` with `JwtAuth`; service
+  tests (bcrypt hash, credentials, nonexistent user, duplicate email) and
+  controller tests (400 with detail, 201 without leaking the password, full
+  flow with token, 401 with no/invalid token).
+- **3.8**: `/healthz` and `/readyz` registered in `NewRouter` (exempt from
+  CORS, rate limit and access log); `Readiness` adds `db` and `redis`
+  depending on the flags, with a 2 s timeout and a `503` response naming the
+  downed dependency. `health_test.go` covers the no-dependencies case, the
+  failure and the timeout.
+- New harness: `test_generated_project_architecture` verifies that no `.go`
+  file contains `configs.Env`,
+  `configs.GetDB/GetRedis/GetLogger/GetAsynqClient`, `MustBootstrap` nor
+  `runtime.Caller`, that all `env/*.env` define `WORKER_CONCURRENCY`, that
+  the worker uses `cfg.WorkerConcurrency` and that the router publishes
+  `/healthz` and `/readyz`. The extended smoke applies the migration before
+  starting and checks `/readyz`, the `signup → login → me` flow, and a 0 exit
+  after `SIGTERM`.
+- Follow-up fixes: `configs/client_redis.go` is kept with `use_asynq=yes`
+  (without Redis there is no readiness or queue client) and
+  `post_gen_project.py` + `test_generated_project_conditional_files` reflect
+  that rule; two justified `#nosec` (`G703` in the env-search `os.Stat` and
+  `G102` in the server bind to `:<port>`).
+- Generators: `repository.j2` and `service.j2` no longer use `configs.GetDB`
+  nor build dependencies internally; they follow the
+  `NewUserRepository(db)`/`NewUserService(repo)` pattern and the project
+  keeps building after `inv gen-model`.
+- README: new "Architecture" section and endpoints (`/healthz`, `/readyz` and
+  the JWT flow when there is a database), `WORKER_CONCURRENCY` in
+  configuration, and correcting `configs.Bootstrap()` to
+  `configs.NewConfig()` in the root.
 
-## Fase 4 — DX y CI
+## Phase 4 — DX and CI
 
-### Dependencias
+### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 4.1 | 0.3.2, 0.4.8 | 4.5 | `make help` y targets verdes |
-| 4.2 | 0.3.0 | 4.5 | `atlas.hcl` parametrizado por entorno |
+| 4.1 | 0.3.2, 0.4.8 | 4.5 | `make help` and green targets |
+| 4.2 | 0.3.0 | 4.5 | `atlas.hcl` parameterized per environment |
 | 4.3 | 0.1.17 | 4.5 | `golangci-lint run` |
-| 4.4 | 0.4.2–0.4.10 | 4.5 | cobertura de la estrategia 0.4 |
-| 4.5 | 0.3.8, 4.1–4.4 | 4.6, 4.7 | CI completa verde |
-| 4.6 | 4.5 | 5.7 | cache de `UV_CACHE_DIR`/`GOMODCACHE` |
-| 4.7 | 4.5 | — | workflows con `concurrency`/`permissions`/`timeout` |
-| 4.8 | 0.3.8 | 4.5 | `grep` sin `pip install cookiecutter` |
+| 4.4 | 0.4.2–0.4.10 | 4.5 | coverage of the 0.4 strategy |
+| 4.5 | 0.3.8, 4.1–4.4 | 4.6, 4.7 | full CI green |
+| 4.6 | 4.5 | 5.7 | cache of `UV_CACHE_DIR`/`GOMODCACHE` |
+| 4.7 | 4.5 | — | workflows with `concurrency`/`permissions`/`timeout` |
+| 4.8 | 0.3.8 | 4.5 | `grep` without `pip install cookiecutter` |
 
 ### Checklist
 
-- [x] **4.1** Limpiar Makefile: targets `lint`, `test`, `test-unit`,
-      `test-integration`, `coverage`, `build-all`, `migrate`, `worker` y
-      `test-template`.
-- [x] **4.2** Parametrizar `atlas.hcl` y los DSN del Makefile por entorno.
-- [x] **4.3** Añadir `.golangci.yml` y arreglar los avisos.
-- [x] **4.4** Verificar que los tests descritos en 0.4 están implementados y
-      cubiertos (handler con `httptest`, repositorio con testcontainers o
-      compose); no duplicar su definición.
-- [x] **4.5** Ampliar `.github/workflows/ci.yml` del repositorio plantilla:
-  - matriz de fixtures alineada con la Fase 0 (mínima y completa en PR; matriz
-    completa en nightly);
+- [x] **4.1** Clean up the Makefile: `lint`, `test`, `test-unit`,
+      `test-integration`, `coverage`, `build-all`, `migrate`, `worker` and
+      `test-template` targets.
+- [x] **4.2** Parameterize `atlas.hcl` and the Makefile DSNs per environment.
+- [x] **4.3** Add `.golangci.yml` and fix the warnings.
+- [x] **4.4** Verify that the tests described in 0.4 are implemented and
+      covered (handler with `httptest`, repository with testcontainers or
+      compose); do not duplicate their definition.
+- [x] **4.5** Extend the template repository's `.github/workflows/ci.yml`:
+  - fixture matrix aligned with Phase 0 (minimal and full on PR; full matrix
+    on nightly);
   - `uvx --with pytest --with pyyaml --with pexpect pytest -q tests/`;
   - `go build ./...`, `go vet ./...`, `go test -race ./...`,
     `go mod tidy -diff`;
-  - `golangci-lint`, `govulncheck`, `gosec` y `gitleaks`;
-  - `docker build` y escaneo de la imagen del proyecto generado.
-- [x] **4.6** Usar `astral-sh/setup-uv` y cachear `UV_CACHE_DIR` y
-      `GOMODCACHE`; fijar la versión de cookiecutter y de las herramientas.
-- [x] **4.7** Añadir `concurrency`, `permissions` mínimos y `timeout` a los
-      workflows.
-- [x] **4.8** No usar `pip install cookiecutter` en ningún workflow.
+  - `golangci-lint`, `govulncheck`, `gosec` and `gitleaks`;
+  - `docker build` and scan of the generated project's image.
+- [x] **4.6** Use `astral-sh/setup-uv` and cache `UV_CACHE_DIR` and
+      `GOMODCACHE`; pin the cookiecutter and tool versions.
+- [x] **4.7** Add `concurrency`, least-privilege `permissions` and `timeout`
+      to the workflows.
+- [x] **4.8** Do not use `pip install cookiecutter` in any workflow.
 
-Criterio de aceptación: CI verde sobre la matriz de proyectos generados y
-`make test-template` funciona en limpio.
+Acceptance criteria: CI green over the matrix of generated projects and
+`make test-template` working from a clean state.
 
-#### Evidencia Fase 4
+#### Phase 4 evidence
 
-- Gate: `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template` con la
-  matriz completa → **77 pasados, 1 saltado** (8:17 min); con
-  `FIXTURES=minimal,full` → **29 pasados, 1 saltado**. `make security` en verde
-  (gitleaks: *no leaks*; `trivy no disponible` en local, tolerado por el
-  target) y `git diff --check` sin incidencias.
-- **4.1**: el Makefile raíz expone `help` (con las versiones fijadas),
-  `test-template` y `security`; el Makefile generado cubre `fmt`, `vet`,
+- Gate: `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template` with the
+  full matrix → **77 passed, 1 skipped** (8:17 min); with
+  `FIXTURES=minimal,full` → **29 passed, 1 skipped**. `make security` green
+  (gitleaks: *no leaks*; `trivy not available` locally, tolerated by the
+  target) and `git diff --check` free of issues.
+- **4.1**: the root Makefile exposes `help` (with the pinned versions),
+  `test-template` and `security`; the generated Makefile covers `fmt`, `vet`,
   `lint`, `build`, `build-all`, `run`, `test`, `test-unit`,
-  `test-integration`, `coverage`, `migrate`, `dbdiff`, `dbapply` y `worker`.
-  Arnés: `test_root_makefile_help` (etiquetas reales del `make help`) y
-  `test_generated_makefile_targets` (con `make -n` por target,
-  `STAGE=testing go run ./cmd/migrate`, `/<slug>_test` en `test-integration` y
-  `--var dev_url=` en `dbdiff`).
-- **4.2**: el Makefile generado hace `-include env/$(STAGE).env` (por defecto
-  `dev`), con fallbacks `?=`, `TEST_DB_NAME ?= {{ slug }}_test`,
-  `TEST_DATABASE_URL` y `ATLAS_DEV_URL` (por defecto
-  `docker://postgres/16/dev?search_path=public`); `atlas.hcl:5` lee
-  `var "dev_url"` y `make dbdiff` pasa `--var dev_url=`. El README generado
-  documenta `make lint`/`build-all`/`migrate` y ya no lleva DSN hardcodeado en
-  «Migraciones».
-- **4.3**: `.golangci.yml` (estándar + `bodyclose`, `errorlint`, `gocritic`,
+  `test-integration`, `coverage`, `migrate`, `dbdiff`, `dbapply` and
+  `worker`. Harness: `test_root_makefile_help` (real labels from
+  `make help`) and `test_generated_makefile_targets` (with `make -n` per
+  target, `STAGE=testing go run ./cmd/migrate`, `/<slug>_test` in
+  `test-integration` and `--var dev_url=` in `dbdiff`).
+- **4.2**: the generated Makefile does `-include env/$(STAGE).env` (default
+  `dev`), with `?=` fallbacks, `TEST_DB_NAME ?= {{ slug }}_test`,
+  `TEST_DATABASE_URL` and `ATLAS_DEV_URL` (default
+  `docker://postgres/16/dev?search_path=public`); `atlas.hcl:5` reads
+  `var "dev_url"` and `make dbdiff` passes `--var dev_url=`. The generated
+  README documents `make lint`/`build-all`/`migrate` and no longer carries a
+  hardcoded DSN in "Migrations".
+- **4.3**: `.golangci.yml` (standard + `bodyclose`, `errorlint`, `gocritic`,
   `misspell`, `nilerr`, `revive`, `rowserrcheck`, `sqlclosecheck`, `unparam`,
-  `whitespace`, `gosec`, `gofmt`/`goimports`, exclusiones para `_test.go` y
-  `tools/`) con `max-issues-per-linter/same-issues: 0` para no truncar la
-  salida. Los **123 avisos** iniciales (122 `revive` + 1 `gofmt`) quedan en 0:
-  comentarios de paquete y de todas las exportaciones, `_ context.Context` en
-  hooks y handlers sin contexto, `FTypeUuid → FTypeUUID` (con sus tests) y
-  `gofmt` en `converter_test.go` (sin `{{` de Jinja: se usa una variable
-  intermedia). Los **8 fixtures** pasan `gofmt -l` y `golangci-lint run` limpio.
-- **4.4**: `test_full_project_http_smoke` añade `_integration_env(project)`
-  (lee `env/testing.env`, usa `project.name` como base de datos) y ejecuta
-  `go test -tags=integration ./...` dentro del mismo `compose up`, reutilizando
-  las migraciones ya aplicadas.
-- **4.5**: ci.yml con `on: push/pull_request` (`FIXTURES=minimal,full`),
-  `schedule` (cron `17 3 * * *`, matriz de los 8) y `workflow_dispatch` con
-  input `fixtures`; paso «Seleccionar matriz de fixtures» vía `$GITHUB_ENV` y
-  job `image` que genera el fixture `full`, hace `docker build` y escanea con
-  `trivy image` en modo informativo (`--exit-code 0` + SARIF).
-- **4.6/4.7**: `astral-sh/setup-uv` con `enable-cache` y
-  `cache-dependency-glob`, `setup-go` con caché de módulos (sin
-  `actions/cache` duplicado), `permissions` mínimos a nivel workflow,
-  `concurrency` a nivel workflow (`ci-{event}-{ref}`), `timeout-minutes` por
-  job y tres subidas de SARIF (`gitleaks`, `trivy-secret`, `trivy-vuln`).
-  En el workflow generado, `concurrency` también es de workflow y ya no queda
-  ningún bloque de job-level.
-- **4.8**: `grep -rn "pip install cookiecutter"` sin resultados fuera de
-  `PLAN.md`; `.github/workflows/ci.yml` validado con PyYAML.
+  `whitespace`, `gosec`, `gofmt`/`goimports`, exclusions for `_test.go` and
+  `tools/`) with `max-issues-per-linter/same-issues: 0` so output is not
+  truncated. The initial **123 warnings** (122 `revive` + 1 `gofmt`) drop to
+  0: package and all-exported comments, `_ context.Context` in hooks and
+  contextless handlers, `FTypeUuid → FTypeUUID` (with its tests) and `gofmt`
+  in `converter_test.go` (no `{{` Jinja: an intermediate variable is used).
+  The **8 fixtures** pass `gofmt -l` and a clean `golangci-lint run`.
+- **4.4**: `test_full_project_http_smoke` adds `_integration_env(project)`
+  (reads `env/testing.env`, uses `project.name` as the database) and runs
+  `go test -tags=integration ./...` inside the same `compose up`, reusing
+  the already-applied migrations.
+- **4.5**: ci.yml with `on: push/pull_request` (`FIXTURES=minimal,full`),
+  `schedule` (cron `17 3 * * *`, matrix of all 8) and `workflow_dispatch`
+  with a `fixtures` input; a "Select fixture matrix" step via `$GITHUB_ENV`
+  and an `image` job that generates the `full` fixture, runs `docker build`
+  and scans with `trivy image` in informational mode (`--exit-code 0` +
+  SARIF).
+- **4.6/4.7**: `astral-sh/setup-uv` with `enable-cache` and
+  `cache-dependency-glob`, `setup-go` with module cache (no duplicated
+  `actions/cache`), workflow-level least-privilege `permissions`, workflow
+  `concurrency` (`ci-{event}-{ref}`), `timeout-minutes` per job and three
+  SARIF uploads (`gitleaks`, `trivy-secret`, `trivy-vuln`). In the generated
+  workflow, `concurrency` is also workflow-level and no job-level block
+  remains.
+- **4.8**: `grep -rn "pip install cookiecutter"` with no results outside
+  `PLAN.md`; `.github/workflows/ci.yml` validated with PyYAML.
 
-## Fase 5 — Plantilla
+## Phase 5 — Template
 
-### Dependencias
+### Dependencies
 
-| Paso | Depende de | Desbloquea | Evidencia |
+| Step | Depends on | Unlocks | Evidence |
 |---|---|---|---|
-| 5.1 | 0.2.2 | 5.3 | fixtures condicionales |
-| 5.2 | 0.2.1 | — | `grep` de `version` en la plantilla |
-| 5.3 | 0.2.1, 5.1 | — | generadores renderizados |
-| 5.4 | 0.2.10 | — | `env/_template.env` sin escaping roto |
-| 5.5 | 0.2.1 | — | `LICENSE` correcto por opción |
-| 5.6 | 0.2.12 | — | README raíz revisado |
-| 5.7 | 1.2, 4.6 | — | `renovate.json` válido |
+| 5.1 | 0.2.2 | 5.3 | conditional fixtures |
+| 5.2 | 0.2.1 | — | `grep` of `version` in the template |
+| 5.3 | 0.2.1, 5.1 | — | rendered generators |
+| 5.4 | 0.2.10 | — | `env/_template.env` without broken escaping |
+| 5.5 | 0.2.1 | — | correct `LICENSE` per option |
+| 5.6 | 0.2.12 | — | root README reviewed |
+| 5.7 | 1.2, 4.6 | — | valid `renovate.json` |
 | 5.8 | 0.3.1, 0.3.3, 0.3.8 | — | `pexpect` + `--no-input` |
 
 ### Checklist
 
-- [x] **5.1** Definir explícitamente qué archivos se eliminan con cada flag y
-      probarlo en la matriz de fixtures (los flags ya se definen en 0.2).
-- [x] **5.2** Usar o eliminar la variable `version`.
-- [x] **5.3** Corregir generadores `model.j2`, `repository.j2`, `service.j2` para
-      que respeten el patrón y la DI existentes.
-- [x] **5.4** Revisar `_copy_without_render` y el escapado de Jinja en
+- [x] **5.1** Explicitly define which files are removed with each flag and
+      test it over the fixture matrix (the flags are already defined in
+      0.2).
+- [x] **5.2** Use or remove the `version` variable.
+- [x] **5.3** Fix the `model.j2`, `repository.j2`, `service.j2` generators to
+      respect the existing pattern and DI.
+- [x] **5.4** Review `_copy_without_render` and the Jinja escaping in
       `env/_template.env`.
-- [x] **5.5** Generar el `LICENSE` del proyecto según la licencia elegida.
-- [x] **5.6** Actualizar README raíz con requisitos, features opcionales y flujo
-      de generación usando `uvx`.
-- [x] **5.7** Añadir `renovate.json` para Go, Docker, GitHub Actions,
-      herramientas de CI y la versión de cookiecutter, agrupando
-      actualizaciones relacionadas.
-- [x] **5.8** Probar el modo interactivo (smoke con `pexpect`, usando
-      `uvx --with pexpect`) y `--no-input` con todos los fixtures.
+- [x] **5.5** Generate the project's `LICENSE` according to the chosen
+      license.
+- [x] **5.6** Update the root README with requirements, optional features and
+      the generation flow using `uvx`.
+- [x] **5.7** Add `renovate.json` for Go, Docker, GitHub Actions, CI tools and
+      the cookiecutter version, grouping related updates.
+- [x] **5.8** Test interactive mode (smoke with `pexpect`, using
+      `uvx --with pexpect`) and `--no-input` with all fixtures.
 
-Criterio de aceptación: `uvx cookiecutter` en modo interactivo y `--no-input`
-generan proyectos válidos con y sin features opcionales, y la matriz completa
-pasa `make test-template`.
+Acceptance criteria: `uvx cookiecutter` in interactive mode and `--no-input`
+generate valid projects with and without optional features, and the full
+matrix passes `make test-template`.
 
-#### Evidencia Fase 5
+#### Phase 5 evidence
 
-- **5.1**: `hooks/post_gen_project.py` concentra las eliminaciones en una tabla
-  `REMOVALS` con booleanos derivados de los flags. El arnés comprueba
-  `cmd/migrate`, `cmd/devcli`, `tools/go.mod`/`go.sum`, los scripts de
-  `tools/fake*`, `atlas.hcl`, `migrations/`, los clientes de Redis/Asynq y
-  `cmd/worker`; además valida los servicios de `compose.yaml`, los jobs y
-  servicios del workflow generado, la presencia/ausencia de targets
-  condicionales del Makefile y que ningún archivo operativo apunte a una ruta
-  eliminada.
-- **5.2**: se eliminó `version` de `cookiecutter.json` y de los ocho fixtures
-  (no se consumía en ningún artefacto); `test_cookiecutter_context_has_no_unused_version`
-  lo verifica.
-- **5.3**: `tasks.py` separa acrónimos (`HTTPClient` → `http_client` /
-  `httpClient`), valida que el modelo sea PascalCase, escribe con salto de
-  línea final y ejecuta `gofmt`. Las plantillas documentan los símbolos
-  exportados y el servicio expone `GetAll`. El arnés genera `HarnessModel` y
-  `HTTPClient`, comprueba nombres/comentarios, `gofmt -l` limpio y
-  `golangci-lint` tras la generación.
-- **5.4**: `_copy_without_render` queda limitado a `atlas.hcl`,
-  `tools/templates/*.j2` y `env/_template.env`; el arnés exige que esos
-  archivos se copien byte a byte, que `atlas.hcl` conserve su Jinja de Atlas,
-  que las plantillas conserven `{{ model }}` y que `env/_template.env` conserve
-  `{{ STAGE }}`. El escaneo de Jinja restante ignora binarios y cubre todos los
-  fixtures.
-- **5.5**: `LICENSE` se renderiza en cuatro ramas (MIT, Apache-2.0,
-  BSD-3-Clause y proprietary) con autor y año UTC. Los fixtures cubren las
-  cuatro licencias; los tests comprueban marcadores de cada texto, la ausencia
-  de la licencia original del repositorio y que el README generado mencione la
-  licencia elegida.
-- **5.6**: README raíz reescrito con requisitos, uso interactivo y
-  `--no-input`, tabla de variables, features opcionales, estructura, licencia,
-  Renovate y comandos. `make cookiecutter-version` imprime el pin; el README y
-  el del proyecto generado ya no duplican `cookiecutter==X.Y.Z` (test
-  `test_root_makefile_cookiecutter_version`).
-- **5.7**: `renovate.json` usa `config:recommended` y managers regex con
-  `managerFilePatterns` para actualizar Cookiecutter (PyPI), la versión de Go,
-  `golangci-lint`, `govulncheck`, `gosec`, `gitleaks`, `trivy` y las imágenes
-  del `compose.yaml` templado; los managers oficiales cubren `go.mod`,
-  `Dockerfile` y GitHub Actions. Los tests validan la estructura y que cada
-  regex reconoce las líneas reales del Makefile y la CI.
-- **5.8**: `test_interactive_generation` conduce la CLI real con `pexpect`
-  (incluidos los códigos ANSI del selector de licencia), elige Apache-2.0,
-  desactiva worker/Swagger/pprof/Sentry y compila, pasa `go vet` y
-  `go test`; `test_no_input_generation_without_config` genera con los valores
-  por defecto (`projectname`, módulo `github.com/yourname/projectname`, MIT y
-  todas las features) y compila, pasa `go vet` y `go test`.
-- **Gate**: `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template` con
-  la matriz completa → **149 pasados, 1 saltado** (7:50 min). El único salto es
-  `test_generated_compose_is_valid[minimal]`, porque ese fixture no genera
-  `compose.yaml`; las herramientas obligatorias (`govulncheck`, `gosec`,
-  `gitleaks`) se ejecutan, no se saltan.
-- **Seguridad**: `make security` → gitleaks *no leaks found* y trivy
-  secret/vulnerabilidad sin hallazgos.
+- **5.1**: `hooks/post_gen_project.py` centralizes removals in a `REMOVALS`
+  table with booleans derived from the flags. The harness checks `cmd/migrate`,
+  `cmd/devcli`, `tools/go.mod`/`go.sum`, the `tools/fake*` scripts,
+  `atlas.hcl`, `migrations/`, the Redis/Asynq clients and `cmd/worker`; it
+  also validates the `compose.yaml` services, the generated workflow's jobs
+  and services, the presence/absence of conditional Makefile targets, and
+  that no operational file points at a removed path.
+- **5.2**: `version` was removed from `cookiecutter.json` and the eight
+  fixtures (it was consumed by no artifact);
+  `test_cookiecutter_context_has_no_unused_version` verifies it.
+- **5.3**: `tasks.py` splits acronyms (`HTTPClient` → `http_client` /
+  `httpClient`), validates the model is PascalCase, writes with a trailing
+  newline and runs `gofmt`. The templates document exported symbols and the
+  service exposes `GetAll`. The harness generates `HarnessModel` and
+  `HTTPClient`, checks names/comments, a clean `gofmt -l` and
+  `golangci-lint` after generation.
+- **5.4**: `_copy_without_render` is limited to `atlas.hcl`,
+  `tools/templates/*.j2` and `env/_template.env`; the harness requires that
+  those files be copied byte for byte, that `atlas.hcl` keeps its Atlas
+  Jinja, that the templates keep `{{ model }}` and that `env/_template.env`
+  keeps `{{ STAGE }}`. The scan for remaining Jinja ignores binaries and
+  covers all fixtures.
+- **5.5**: `LICENSE` is rendered in four branches (MIT, Apache-2.0,
+  BSD-3-Clause and proprietary) with author and UTC year. Fixtures cover all
+  four licenses; the tests check markers from each text, the absence of the
+  repository's original license, and that the generated README mentions the
+  chosen license.
+- **5.6**: root README rewritten with requirements, interactive and
+  `--no-input` usage, a variables table, optional features, structure,
+  license, Renovate and commands. `make cookiecutter-version` prints the pin;
+  the README and the generated project's README no longer duplicate
+  `cookiecutter==X.Y.Z` (test `test_root_makefile_cookiecutter_version`).
+- **5.7**: `renovate.json` uses `config:recommended` and regex managers with
+  `managerFilePatterns` to update Cookiecutter (PyPI), the Go version,
+  `golangci-lint`, `govulncheck`, `gosec`, `gitleaks`, `trivy` and the
+  templated `compose.yaml` images; official managers cover `go.mod`,
+  `Dockerfile` and GitHub Actions. Tests validate the structure and that
+  each regex matches the real Makefile and CI lines.
+- **5.8**: `test_interactive_generation` drives the real CLI with `pexpect`
+  (including the ANSI codes of the license selector), picks Apache-2.0,
+  disables worker/Swagger/pprof/Sentry and builds, passes `go vet` and runs
+  `go test`; `test_no_input_generation_without_config` generates with the
+  defaults (`projectname`, module `github.com/yourname/projectname`, MIT and
+  all features) and builds, passes `go vet` and runs `go test`.
+- **Gate**: `REQUIRE_GOVULNCHECK=1 REQUIRE_SECURITY=1 make test-template` with
+  the full matrix → **149 passed, 1 skipped** (7:50 min). The only skip is
+  `test_generated_compose_is_valid[minimal]`, because that fixture does not
+  generate `compose.yaml`; the mandatory tools (`govulncheck`, `gosec`,
+  `gitleaks`) run, they are not skipped.
+- **Security**: `make security` → gitleaks *no leaks found* and trivy
+  secret/vulnerability with no findings.
 
-## Notas
+## Notes
 
-- Orden recomendado: Fase 0 (0.1 → 0.2 → 0.4.1–0.4.7 → 0.3 → 0.4.8–0.4.10) →
-  1 → 2 → 3 → 4 → 5. El adelanto de 0.4.1–0.4.7 satisface la dependencia
-  `0.3.4 → 0.4.6` (build tag `integration`).
-- La Fase 0 y la 1 se pueden entregar juntas como primera iteración.
-- Cada fase debe terminar con `make test-template`; es la única forma de evitar
-  regresiones como las actuales.
-- Todas las pruebas que generen la plantilla deben usar `uvx`, nunca una
-  instalación global de cookiecutter.
+- Recommended order: Phase 0 (0.1 → 0.2 → 0.4.1–0.4.7 → 0.3 → 0.4.8–0.4.10) →
+  1 → 2 → 3 → 4 → 5. Pulling 0.4.1–0.4.7 forward satisfies the
+  `0.3.4 → 0.4.6` dependency (the `integration` build tag).
+- Phase 0 and 1 can be delivered together as the first iteration.
+- Each phase must end with `make test-template`; it is the only way to avoid
+  regressions like the current ones.
+- All tests that generate the template must use `uvx`, never a global
+  cookiecutter installation.

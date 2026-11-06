@@ -1,17 +1,17 @@
 .PHONY: fmt vet lint build build-all run test test-unit test-integration coverage{% if cookiecutter.use_db == "yes" %} migrate dbreset dbdiff dbapply{% endif %}{% if cookiecutter.use_swagger == "yes" %} docs{% endif %}{% if cookiecutter.use_worker == "yes" and cookiecutter.use_asynq == "yes" %} worker{% endif %}
 
-# Stage usado por los targets que arrancan la aplicación o la base de datos.
-# Hereda STAGE del entorno si ya está definida; una línea de mando
-# (make STAGE=testing run) siempre gana sobre el fichero incluido.
+# Stage used by the targets that start the application or the database.
+# It inherits STAGE from the environment when already defined; a command line
+# (make STAGE=testing run) always wins over the included file.
 STAGE ?= dev
 
-# Carga env/<stage>.env como variables de make para que host, puerto y
-# credenciales vivan en un solo sitio (4.2). `-include` no falla si el stage
-# no existe: los `?=` de abajo son los fallbacks.
+# Loads env/<stage>.env as make variables so host, port and credentials live
+# in a single place (4.2). `-include` does not fail if the stage does not
+# exist: the `?=` below are the fallbacks.
 -include env/$(STAGE).env
 
 {% if cookiecutter.use_db == "yes" %}
-# Fallbacks por si env/<stage>.env no esté presente.
+# Fallbacks in case env/<stage>.env is not present.
 DB_HOST ?= 127.0.0.1
 DB_PORT ?= 5432
 DB_USER ?= dev
@@ -19,15 +19,15 @@ DB_PASS ?= dev
 DB_NAME ?= {{ cookiecutter.project_slug }}
 DB_SSL_MODE ?= disable
 
-# Los tests de integración usan siempre una base separada (stage testing),
-# aunque STAGE apunte a dev. Se sobreescribe con `make test-integration
-# DB_USER=ci` o con TEST_DATABASE_URL. Es el único sitio del Makefile con DSN.
+# Integration tests always use a separate database (stage testing), even when
+# STAGE points to dev. Override it with `make test-integration DB_USER=ci` or
+# with TEST_DATABASE_URL. It is the only place in the Makefile holding a DSN.
 TEST_DB_NAME ?= {{ cookiecutter.project_slug }}_test
 TEST_DATABASE_URL ?= postgres://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(TEST_DB_NAME)?sslmode=$(DB_SSL_MODE)
 
-# Dev-database de Atlas para `make dbdiff`. Por defecto Atlas levanta su
-# propio Postgres en Docker; se sobreescribe con ATLAS_DEV_URL para apuntar a
-# otra base. Nunca apunta a la base de la aplicación.
+# Atlas dev database for `make dbdiff`. By default Atlas starts its own
+# Postgres in Docker; override it with ATLAS_DEV_URL to point at another
+# database. It never points at the application database.
 ATLAS_DEV_URL ?= docker://postgres/16/dev?search_path=public
 
 {% endif %}
@@ -41,7 +41,7 @@ lint:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run ./...; \
 	else \
-		echo "golangci-lint no está instalado (https://golangci-lint.run)" >&2; \
+		echo "golangci-lint is not installed (https://golangci-lint.run)" >&2; \
 		exit 1; \
 	fi
 
@@ -79,8 +79,8 @@ docs:
 
 {% endif %}
 {% if cookiecutter.use_db == "yes" %}
-# migrate aplica las migraciones usando env/<stage>.env: la URL la construye
-# cmd/migrate con net/url, así que las credenciales no se duplican aquí.
+# migrate applies the migrations using env/<stage>.env: the URL is built by
+# cmd/migrate with net/url, so credentials are not duplicated here.
 migrate:
 	STAGE=$(STAGE) go run ./cmd/migrate
 

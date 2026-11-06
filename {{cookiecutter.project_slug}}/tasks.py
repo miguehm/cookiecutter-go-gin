@@ -45,8 +45,8 @@ MODEL_NAME = re.compile(r"^[A-Z][A-Za-z0-9]*$")
 
 
 def to_snake_case(s):
-    # Separa acrónimos antes de las transiciones minúscula → mayúscula:
-    # HTTPServer → http_server y HarnessModel → harness_model.
+    # Splits acronyms before the lowercase → uppercase transitions:
+    # HTTPServer → http_server and HarnessModel → harness_model.
     s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", s)
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
     return s.lower()
@@ -60,8 +60,8 @@ def to_camel_case(s):
 def validate_model_name(model):
     if not MODEL_NAME.match(model):
         logger.error(
-            "el nombre del modelo debe ser PascalCase y un identificador Go válido "
-            "(por ejemplo HarnessModel)"
+            "the model name must be PascalCase and a valid Go identifier "
+            "(for example HarnessModel)"
         )
         raise SystemExit(1)
 
@@ -72,7 +72,7 @@ def read_go_module():
             if line.startswith('module '):
                 return line.split(None, 1)[1].strip()
 
-    raise RuntimeError("no se encontró la línea 'module' en go.mod")
+    raise RuntimeError("the 'module' line was not found in go.mod")
 
 
 def template_context(model):
@@ -87,12 +87,12 @@ def template_context(model):
 def gofmt(path):
     gofmt_bin = shutil.which("gofmt")
     if gofmt_bin is None:
-        logger.warning("gofmt no está instalado; %s no se ha formateado", path)
+        logger.warning("gofmt is not installed; %s was not formatted", path)
         return
 
     result = subprocess.run([gofmt_bin, "-w", path], capture_output=True, text=True)
     if result.returncode != 0:
-        raise RuntimeError(f"gofmt falló en {path}: {result.stderr.strip()}")
+        raise RuntimeError(f"gofmt failed in {path}: {result.stderr.strip()}")
 
 
 # Tasks
